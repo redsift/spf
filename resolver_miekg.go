@@ -65,7 +65,7 @@ func (r *miekgDNSResolver) cachedResponse(req *dns.Msg) (*dns.Msg, bool) {
 
 const maxUint32 = 1<<32 - 1
 
-func (r *miekgDNSResolver) cacheResponse(req, res *dns.Msg) {
+func (r *miekgDNSResolver) cacheResponse(res *dns.Msg) {
 	if r.cache == nil {
 		return
 	}
@@ -81,7 +81,7 @@ func (r *miekgDNSResolver) cacheResponse(req, res *dns.Msg) {
 	if ttl == 0 {
 		return
 	}
-	r.cache.SetWithExpire(req.Question[0], res, time.Duration(ttl)*time.Second)
+	r.cache.SetWithExpire(res.Question[0], res, time.Duration(ttl)*time.Second)
 }
 
 // If the DNS lookup returns a server failure (RCODE 2) or some other
@@ -112,7 +112,7 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	if res.Rcode != dns.RcodeSuccess {
 		return nil, ErrDNSTemperror
 	}
-	r.cacheResponse(req, res)
+	r.cacheResponse(res)
 	return res, nil
 }
 
