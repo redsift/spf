@@ -3,6 +3,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/bluele/gcache"
+  packages = ["."]
+  revision = "472614239ac7e5bc6461e237c798a6ebd5aff8c1"
+
+[[projects]]
+  branch = "master"
   name = "github.com/miekg/dns"
   packages = [".","internal/socket"]
   revision = "2a67631d76627b762968cd12388cd6ee67f33996"
@@ -10,6 +16,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ca785e831ac40d255a0fadd7ac78ecce4f9ef81bcf398e67baaf81fa7d809e0d"
+  inputs-digest = "a4e22d867a37f9b47736354f9e296793d0e2b4ee97012642a325f9b49b9b06e4"
   solver-name = "gps-cdcl"
   solver-version = 1

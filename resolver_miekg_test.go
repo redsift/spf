@@ -3,6 +3,8 @@ package spf
 import (
 	"testing"
 
+	"time"
+
 	"github.com/miekg/dns"
 )
 
@@ -29,6 +31,53 @@ func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
 
 	if len(r) != 1 {
 		t.Errorf("want 1 got %d", len(r))
+	}
+}
+
+func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
+	latency := 500 * time.Millisecond
+	dns.HandleFunc("slow.test.", withLatency(zone(map[uint16][]string{
+		dns.TypeA: {
+			`slow.test. 2 IN A 127.0.0.1`,
+		},
+	}), latency))
+	defer dns.HandleRemove("slow.test.")
+
+	start := time.Now()
+	found, e := testResolver.Exists("slow.test.")
+	d := time.Since(start)
+
+	if !found {
+		t.Error("unexpected response: want=true, got=false")
+	}
+
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	if d < latency {
+		t.Errorf("unexpected quick response: want=%v, got=%v", latency, d)
+	}
+
+	start = time.Now()
+	_, e = testResolver.Exists("slow.test.")
+	d = time.Since(start)
+
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	if d > latency {
+		t.Errorf("too slow response for cached response: want < %v, got=%v", latency, d)
+	}
+
+	time.Sleep(2 * time.Second)
+	start = time.Now()
+	_, e = testResolver.Exists("slow.test.")
+	d = time.Since(start)
+
+	if d < latency {
+		t.Errorf("quick response for expired cache: want=%v, got=%v", latency, d)
 	}
 }
 
