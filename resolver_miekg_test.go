@@ -5,6 +5,9 @@ import (
 
 	"time"
 
+	"net"
+
+	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
 )
 
@@ -97,5 +100,38 @@ func TestMiekgDNSResolver_LookupTXT_Multiline(t *testing.T) {
 
 	if len(r) != 1 {
 		t.Errorf("want 1 got %d", len(r))
+	}
+}
+
+func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
+	dnsCache := gcache.New(10).LRU().Build()
+	client := new(dns.Client)
+	client.Timeout = 800 * time.Millisecond
+	var l []Resolver
+	for _, a := range []string{"8.8.8.8:53", "8.8.4.4:53"} {
+		r, err := NewMiekgDNSResolverWithClient(a, client, MiekgDNSCache(dnsCache))
+		if err != nil {
+			t.Fatalf("error creating resolver: %s", err)
+		}
+		l = append(l, r)
+	}
+	r := NewRetryResolver(l, BackoffFactor(1.2))
+
+	// 172.217.31.1 is an address from _netblocks3.google.com., so checking it should unfold _spf.google.com
+	res, s, err := CheckHostWithResolver(net.ParseIP("172.217.31.1"), "google.com", "alt4.aspmx.l.google.com", r)
+	if err != nil {
+		t.Fatal(res, s, err)
+	}
+
+	if len(dnsCache.GetALL()) != 5 {
+		// google.com.
+		// _spf.google.com.
+		// _netblocks.google.com.
+		// _netblocks2.google.com.
+		// _netblocks3.google.com.
+		for k, v := range dnsCache.GetALL() {
+			t.Logf("k=%q, v=%q", k, v.(*dns.Msg).Answer)
+		}
+		t.Fatal("not all requests cached")
 	}
 }
