@@ -343,9 +343,10 @@ func TestParseA(t *testing.T) {
 
 	var match bool
 	var result Result
-
+	var e error
 	for i, testcase := range testcases {
-		match, result, _ = p.parseA(testcase.Input)
+		match, result, e = p.parseA(testcase.Input)
+		t.Log(e)
 		if testcase.Match != match {
 			t.Errorf("#%d Match mismatch, expected %v, got %v\n", i, testcase.Match, match)
 		}
