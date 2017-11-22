@@ -101,7 +101,17 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	res, _, err := r.client.Exchange(req, r.serverAddr)
+	var (
+		res *dns.Msg
+		err error
+	)
+	for _, n := range []string{"udp", "tcp"} {
+		r.client.Net = n
+		res, _, err = r.client.Exchange(req, r.serverAddr)
+		if err != dns.ErrTruncated {
+			break
+		}
+	}
 	if err != nil {
 		return nil, ErrDNSTemperror
 	}

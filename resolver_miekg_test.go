@@ -135,3 +135,20 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 		t.Fatal("not all requests cached")
 	}
 }
+
+func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
+	client := new(dns.Client)
+	resolver, err := NewMiekgDNSResolverWithClient("8.8.8.8:53", client)
+	if err != nil {
+		t.Fatal("Could not create resolver", err)
+	}
+
+	txts, err := resolver.LookupTXTStrict("thomsonreuters.com.")
+	if err != nil {
+		t.Fatal("Could not query TXTs", err)
+	}
+
+	if len(txts) == 0 {
+		t.Error("No TXT records", txts)
+	}
+}
