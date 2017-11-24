@@ -23,7 +23,7 @@ var (
 /********************/
 
 func TestNewParserFunction(t *testing.T) {
-	p := newParser(stub, stub, ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 
 	if p.Sender != stub {
 		t.Error("Sender mismatch, got: ", p.Sender, " expected ", stub)
@@ -164,7 +164,7 @@ func TestTokensSoriting(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		p := newParser(stub, stub, ip, stub, testResolver)
+		p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 		_ = p.sortTokens(testcase.Tokens)
 
 		if !reflect.DeepEqual(p.Mechanisms, testcase.ExpTokens) {
@@ -220,7 +220,7 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		p := newParser(stub, stub, ip, stub, testResolver)
+		p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 		if err := p.sortTokens(testcase.Tokens); err == nil {
 			t.Error("We should have gotten an error, ")
 		}
@@ -238,7 +238,7 @@ type TokenTestCase struct {
 // TODO(marek): Add testfunction for tVersion token
 
 func TestParseAll(t *testing.T) {
-	p := newParser(stub, stub, ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
 		{&token{tAll, qPlus, ""}, Pass, true},
 		{&token{tAll, qMinus, ""}, Fail, true},
@@ -307,7 +307,7 @@ func TestParseA(t *testing.T) {
 	}))
 	defer dns.HandleRemove("lb.matching.com.")
 
-	p := newParser(domain, "matching.com", net.IP{172, 18, 0, 2}, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{172, 18, 0, 2})
 	testcases := []TokenTestCase{
 		{&token{tA, qPlus, "positive.matching.com"}, Pass, true},
 		{&token{tA, qPlus, "positive.matching.com/32"}, Pass, true},
@@ -343,10 +343,8 @@ func TestParseA(t *testing.T) {
 
 	var match bool
 	var result Result
-	var e error
 	for i, testcase := range testcases {
-		match, result, e = p.parseA(testcase.Input)
-		t.Log(e)
+		match, result, _ = p.parseA(testcase.Input)
 		if testcase.Match != match {
 			t.Errorf("#%d Match mismatch, expected %v, got %v\n", i, testcase.Match, match)
 		}
@@ -384,7 +382,7 @@ func TestParseAIpv6(t *testing.T) {
 	dns.HandleFunc("negative.matching.com.", negativeMatchingCom)
 	defer dns.HandleRemove("negative.matching.com.")
 
-	p := newParser(domain, "matching.com", ipv6, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", ipv6)
 	testcases := []TokenTestCase{
 		{&token{tA, qPlus, "positive.matching.com"}, Pass, true},
 		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true},
@@ -412,7 +410,7 @@ func TestParseAIpv6(t *testing.T) {
 }
 
 func TestParseIp4(t *testing.T) {
-	p := newParser(stub, stub, ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
 		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true},
 		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true},
@@ -444,7 +442,7 @@ func TestParseIp4(t *testing.T) {
 }
 
 func TestParseIp6(t *testing.T) {
-	p := newParser(stub, stub, ipv6, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ipv6)
 
 	testcases := []TokenTestCase{
 		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true},
@@ -475,7 +473,7 @@ func TestParseIp6(t *testing.T) {
 }
 
 func TestParseIp6WithIp4(t *testing.T) {
-	p := newParser(stub, stub, ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 
 	testcases := []TokenTestCase{
 		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true},
@@ -526,7 +524,7 @@ func TestParseMX(t *testing.T) {
 
 	/* ***************** */
 
-	p := newParser(domain, "matching.com", net.IP{0, 0, 0, 0}, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{0, 0, 0, 0})
 
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, true},
@@ -583,7 +581,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	dns.HandleFunc("matching.com.", mxMatchingCom)
 	defer dns.HandleRemove("matching.com.")
 
-	p := newParser("matching.com", "matching.com", net.IP{127, 0, 0, 1}, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", net.IP{127, 0, 0, 1})
 
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, false},
@@ -643,7 +641,7 @@ func TestParseInclude(t *testing.T) {
 		{173, 20, 21, 1},
 	}
 
-	p := newParser("matching.net", "matching.net", net.IP{0, 0, 0, 0}, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
 		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true},
 		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true},
@@ -711,7 +709,7 @@ func TestParseIncludeNegative(t *testing.T) {
 		{173, 18, 100, 102},
 		{173, 18, 100, 103},
 	}
-	p := newParser("matching.net", "matching.net", ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", ip)
 
 	testcases := []TokenTestCase{
 		{&token{tInclude, qMinus, "_spf.matching.net"}, None, false},
@@ -764,7 +762,7 @@ func TestParseExists(t *testing.T) {
 	dns.HandleFunc("positive.matching.com.", zone(hosts))
 	defer dns.HandleRemove("positive.matching.com.")
 
-	p := newParser("matching.com", "matching.com", ip, stub, testResolver)
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", ip)
 	testcases := []TokenTestCase{
 		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true},
 		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true},
@@ -939,7 +937,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, err := newParser("matching.com", "matching.com", testcase.IP, testcase.Query, NewLimitedResolver(testResolver, 4, 4)).parse()
+			result, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1050,8 +1048,8 @@ func TestHandleRedirect(t *testing.T) {
 	}
 
 	for _, testcase := range ParseTestCases {
-		p := newParser("matching.com", "matching.com", testcase.IP, testcase.Query, testResolver)
-		result, _, _ := p.parse()
+		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", testcase.IP)
+		result, _, _ := p.check()
 		if result != testcase.Result {
 			t.Errorf("%q Expected %v, got %v", testcase.Query, testcase.Result, result)
 		}
@@ -1093,8 +1091,8 @@ func TestHandleExplanation(t *testing.T) {
 	}
 
 	for _, testcase := range expTestCases {
-		p := newParser("matching.com", "matching.com", ip, testcase.Query, testResolver)
-		_, exp, err := p.parse()
+		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", ip)
+		_, exp, err := p.check()
 		if err != nil {
 			t.Errorf("%q unexpected error while parsing: %s", testcase.Query, err)
 		}
@@ -1160,7 +1158,7 @@ func TestSelectingRecord(t *testing.T) {
 
 	ip := net.ParseIP("10.0.0.1")
 	for i, s := range samples {
-		r, _, e := CheckHostWithResolver(ip, s.d, s.d, testResolver)
+		r, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
 		if r != s.r || e != s.e {
 			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
 		}

@@ -46,6 +46,15 @@ type Resolver interface {
 	MatchMX(string, IPMatcherFunc) (bool, error)
 }
 
+// Option sets an optional parameter for the evaluating e-mail with regard to SPF
+type Option func(*parser)
+
+func WithResolver(r Resolver) Option {
+	return func(p *parser) {
+		p.resolver = r
+	}
+}
+
 // Result represents result of SPF evaluation as it defined by RFC7208
 // https://tools.ietf.org/html/rfc7208#section-2.6
 type Result int
@@ -119,51 +128,8 @@ func (r Result) String() string {
 //
 // CheckHost returns result of verification, explanations as result of "exp=",
 // and error as the reason for the encountered problem.
-func CheckHost(ip net.IP, domain, sender string) (Result, string, error) {
-	return CheckHostWithResolver(ip, domain, sender, NewLimitedResolver(&DNSResolver{}, 10, 10))
-}
-
-// CheckHostWithResolver allows using custom Resolver.
-// Note, that DNS lookup limits need to be enforced by provided Resolver.
-//
-// The function returns result of verification, explanations as result of "exp=",
-// and error as the reason for the encountered problem.
-func CheckHostWithResolver(ip net.IP, domain, sender string, resolver Resolver) (Result, string, error) {
-	/*
-	* As per RFC 7208 Section 4.3:
-	* If the <domain> is malformed (e.g., label longer than 63
-	* characters, zero-length label not at the end, etc.) or is not
-	* a multi-label
-	* domain name, [...], check_host() immediately returns None
-	 */
-	if !isDomainName(domain) {
-		return None, "", ErrInvalidDomain
-	}
-
-	txts, err := resolver.LookupTXTStrict(NormalizeFQDN(domain))
-	switch err {
-	case nil:
-		// continue
-	case ErrDNSLimitExceeded:
-		return Permerror, "", err
-	case ErrDNSPermerror:
-		return None, "", err
-	default:
-		return Temperror, "", err
-	}
-
-	// If the resultant record set includes no records, check_host()
-	// produces the "none" result.  If the resultant record set includes
-	// more than one record, check_host() produces the "permerror" result.
-	spf, err := filterSPF(txts)
-	if err != nil {
-		return Permerror, "", err
-	}
-	if spf == "" {
-		return None, "", ErrSPFNotFound
-	}
-
-	return newParser(sender, domain, ip, spf, resolver).parse()
+func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string, error) {
+	return newParser(opts...).checkHost(ip, domain, sender)
 }
 
 // Starting with the set of records that were returned by the lookup,

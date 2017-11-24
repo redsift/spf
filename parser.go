@@ -46,21 +46,81 @@ type parser struct {
 	Explanation *token
 	Redirect    *token
 	resolver    Resolver
+	options     []Option
 }
 
 // newParser creates new Parser objects and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
-func newParser(sender, domain string, ip net.IP, query string, resolver Resolver) *parser {
-	return &parser{sender, domain, ip, query, make([]*token, 0, 10), nil, nil, resolver}
+func newParser(opts ...Option) *parser {
+	p := &parser{
+		Mechanisms: make([]*token, 0, 10),
+		resolver:   NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:    opts,
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
-// parse aggregates all steps required for SPF evaluation.
+// checkHostWithResolver does checking with custom Resolver.
+// Note, that DNS lookup limits need to be enforced by provided Resolver.
+//
+// The function returns result of verification, explanations as result of "exp=",
+// and error as the reason for the encountered problem.
+func (p *parser) checkHost(ip net.IP, domain, sender string) (Result, string, error) {
+	/*
+	* As per RFC 7208 Section 4.3:
+	* If the <domain> is malformed (e.g., label longer than 63
+	* characters, zero-length label not at the end, etc.) or is not
+	* a multi-label
+	* domain name, [...], check_host() immediately returns None
+	 */
+	if !isDomainName(domain) {
+		return None, "", ErrInvalidDomain
+	}
+
+	txts, err := p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
+	switch err {
+	case nil:
+		// continue
+	case ErrDNSLimitExceeded:
+		return Permerror, "", err
+	case ErrDNSPermerror:
+		return None, "", err
+	default:
+		return Temperror, "", err
+	}
+
+	// If the resultant record set includes no records, check_host()
+	// produces the "none" result.  If the resultant record set includes
+	// more than one record, check_host() produces the "permerror" result.
+	spf, err := filterSPF(txts)
+	if err != nil {
+		return Permerror, "", err
+	}
+	if spf == "" {
+		return None, "", ErrSPFNotFound
+	}
+
+	return newParser(p.options...).with(spf, sender, domain, ip).check()
+}
+
+func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
+	p.Query = query
+	p.Sender = sender
+	p.Domain = domain
+	p.IP = ip
+	return p
+}
+
+// check aggregates all steps required for SPF evaluation.
 // After lexing and tokenizing step it sorts tokens (and returns Permerror if
 // there is any syntax error) and starts evaluating
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
-func (p *parser) parse() (Result, string, error) {
+func (p *parser) check() (Result, string, error) {
 	tokens := lex(p.Query)
 
 	if err := p.sortTokens(tokens); err != nil {
@@ -252,7 +312,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
 	}
-	theirResult, _, err := CheckHostWithResolver(p.IP, domain, p.Sender, p.resolver)
+	theirResult, _, err := p.checkHost(p.IP, domain, p.Sender)
 
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
@@ -329,7 +389,7 @@ func (p *parser) handleRedirect(oldResult Result) (Result, error) {
 
 	redirectDomain := p.Redirect.value
 
-	if result, _, err = CheckHostWithResolver(p.IP, redirectDomain, p.Sender, p.resolver); err != nil {
+	if result, _, err = p.checkHost(p.IP, redirectDomain, p.Sender); err != nil {
 		//TODO(zaccone): confirm result value
 		result = Permerror
 	} else if result == None || result == Permerror {
