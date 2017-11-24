@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
 )
 
@@ -27,7 +28,7 @@ func TestMain(m *testing.M) {
 		_ = s.Shutdown()
 	}()
 
-	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String())
+	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(), MiekgDNSCache(gcache.New(10).Simple().Build()))
 	os.Exit(m.Run())
 }
 
@@ -62,6 +63,13 @@ func rootZone(w dns.ResponseWriter, req *dns.Msg) {
 		m.SetRcode(req, dns.RcodeNameError)
 	}
 	_ = w.WriteMsg(m)
+}
+
+func withLatency(f func(dns.ResponseWriter, *dns.Msg), d time.Duration) func(dns.ResponseWriter, *dns.Msg) {
+	return func(writer dns.ResponseWriter, msg *dns.Msg) {
+		time.Sleep(d)
+		f(writer, msg)
+	}
 }
 
 func zone(zone map[uint16][]string) func(dns.ResponseWriter, *dns.Msg) {

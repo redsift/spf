@@ -1,6 +1,9 @@
 package spf
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 type tokenType int
 
@@ -51,6 +54,8 @@ func (tok tokenType) String() string {
 		return "v"
 	case tAll:
 		return "all"
+	case tA:
+		return "a"
 	case tIP4:
 		return "ip4"
 	case tIP6:
@@ -67,6 +72,14 @@ func (tok tokenType) String() string {
 		return "exists"
 	case tExp:
 		return "exp"
+	case qPlus:
+		return "+"
+	case qMinus:
+		return "-"
+	case qQuestionMark:
+		return "?"
+	case qTilde:
+		return "~"
 	default:
 		return strconv.Itoa(int(tok))
 	}
@@ -147,4 +160,11 @@ type token struct {
 	mechanism tokenType // all, include, a, mx, ptr, ip4, ip6, exists etc.
 	qualifier tokenType // +, -, ~, ?, defaults to +
 	value     string    // value for a mechanism
+}
+
+func (t *token) String() string {
+	if t.value == "" {
+		return fmt.Sprintf("%s:%s", t.qualifier.String(), t.mechanism.String())
+	}
+	return fmt.Sprintf("%s%s:%v", t.qualifier.String(), t.mechanism.String(), t.value)
 }

@@ -31,7 +31,7 @@ type SyntaxError struct {
 }
 
 func (e SyntaxError) Error() string {
-	return fmt.Sprintf("parse error for token %v: %v", e.token, e.err.Error())
+	return fmt.Sprintf(`error checking "%s": %s`, e.token.String(), e.err.Error())
 }
 
 // parser represents parsing structure. It keeps all arguments provided by top

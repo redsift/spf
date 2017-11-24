@@ -4,26 +4,84 @@ import (
 	"net"
 	"sync"
 
-	"github.com/miekg/dns"
 	"strings"
+
+	"time"
+
+	"github.com/bluele/gcache"
+	"github.com/miekg/dns"
 )
 
-// NewMiekgDNSResolver returns new instance of Resolver
-func NewMiekgDNSResolver(addr string) (Resolver, error) {
+type MiekgDNSResolverOption func(r *miekgDNSResolver)
+
+func MiekgDNSCache(c gcache.Cache) MiekgDNSResolverOption {
+	return func(r *miekgDNSResolver) {
+		if c == nil {
+			return
+		}
+		r.cache = c
+	}
+}
+
+// NewMiekgDNSResolver returns new instance of Resolver with default dns.Client
+func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (Resolver, error) {
+	return NewMiekgDNSResolverWithClient(addr, new(dns.Client), opts...)
+}
+
+// NewMiekgDNSResolverWithClient returns new instance of Resolver
+func NewMiekgDNSResolverWithClient(addr string, c *dns.Client, opts ...MiekgDNSResolverOption) (Resolver, error) {
 	if _, _, e := net.SplitHostPort(addr); e != nil {
 		return nil, e
 	}
-	return &MiekgDNSResolver{
-		client:     new(dns.Client),
+	r := &miekgDNSResolver{
+		client:     c,
 		serverAddr: addr,
-	}, nil
+		cache:      nil,
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r, nil
 }
 
-// MiekgDNSResolver implements Resolver using github.com/miekg/dns
-type MiekgDNSResolver struct {
+// miekgDNSResolver implements Resolver using github.com/miekg/dns
+type miekgDNSResolver struct {
 	mu         sync.Mutex
 	client     *dns.Client
+	cache      gcache.Cache
 	serverAddr string
+}
+
+func (r *miekgDNSResolver) cachedResponse(req *dns.Msg) (*dns.Msg, bool) {
+	if r.cache == nil {
+		return nil, false
+	}
+	res, err := r.cache.Get(req.Question[0]) // dns.Question is comparable https://golang.org/ref/spec#Comparison_operators
+	if err != nil {
+		return nil, false
+	}
+	return res.(*dns.Msg), true
+}
+
+const maxUint32 = 1<<32 - 1
+
+func (r *miekgDNSResolver) cacheResponse(res *dns.Msg) {
+	if r.cache == nil {
+		return
+	}
+	if len(res.Answer) == 0 {
+		return
+	}
+	var ttl uint32 = maxUint32
+	for _, a := range res.Answer {
+		if d := a.Header().Ttl; d < ttl {
+			ttl = d
+		}
+	}
+	if ttl == 0 {
+		return
+	}
+	r.cache.SetWithExpire(res.Question[0], res, time.Duration(ttl)*time.Second)
 }
 
 // If the DNS lookup returns a server failure (RCODE 2) or some other
@@ -37,10 +95,23 @@ type MiekgDNSResolver struct {
 // server returns "Name Error" (RCODE 3), then evaluation of the
 // mechanism continues as if the server returned no error (RCODE 0) and
 // zero answer records.
-func (r *MiekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
+func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
+	if res, found := r.cachedResponse(req); found {
+		return res, nil
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	res, _, err := r.client.Exchange(req, r.serverAddr)
+	var (
+		res *dns.Msg
+		err error
+	)
+	for _, n := range []string{"udp", "tcp"} {
+		r.client.Net = n
+		res, _, err = r.client.Exchange(req, r.serverAddr)
+		if err != dns.ErrTruncated {
+			break
+		}
+	}
 	if err != nil {
 		return nil, ErrDNSTemperror
 	}
@@ -51,11 +122,12 @@ func (r *MiekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	if res.Rcode != dns.RcodeSuccess {
 		return nil, ErrDNSTemperror
 	}
+	r.cacheResponse(res)
 	return res, nil
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name.
-func (r *MiekgDNSResolver) LookupTXT(name string) ([]string, error) {
+func (r *miekgDNSResolver) LookupTXT(name string) ([]string, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
@@ -67,7 +139,7 @@ func (r *MiekgDNSResolver) LookupTXT(name string) ([]string, error) {
 	txts := make([]string, 0, len(res.Answer))
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
-			txts = append(txts, strings.Join(r.Txt,""))
+			txts = append(txts, strings.Join(r.Txt, ""))
 		}
 	}
 	return txts, nil
@@ -75,7 +147,7 @@ func (r *MiekgDNSResolver) LookupTXT(name string) ([]string, error) {
 
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *MiekgDNSResolver) LookupTXTStrict(name string) ([]string, error) {
+func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, error) {
 
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
@@ -92,7 +164,7 @@ func (r *MiekgDNSResolver) LookupTXTStrict(name string) ([]string, error) {
 	txts := make([]string, 0, len(res.Answer))
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
-			txts = append(txts, strings.Join(r.Txt,""))
+			txts = append(txts, strings.Join(r.Txt, ""))
 		}
 	}
 	return txts, nil
@@ -101,7 +173,7 @@ func (r *MiekgDNSResolver) LookupTXTStrict(name string) ([]string, error) {
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
 // mechanism matches.
-func (r *MiekgDNSResolver) Exists(name string) (bool, error) {
+func (r *miekgDNSResolver) Exists(name string) (bool, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeA)
 
@@ -133,7 +205,7 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc) (bool, error) {
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *MiekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
 	var wg sync.WaitGroup
 	qTypes := []uint16{dns.TypeA, dns.TypeAAAA}
 	hits := make(chan hit, len(qTypes))
@@ -176,7 +248,7 @@ func (r *MiekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *MiekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeMX)
 
