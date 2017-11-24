@@ -46,6 +46,7 @@ type parser struct {
 	Explanation *token
 	Redirect    *token
 	resolver    Resolver
+	listener    Listener
 	options     []Option
 }
 
@@ -69,7 +70,9 @@ func newParser(opts ...Option) *parser {
 //
 // The function returns result of verification, explanations as result of "exp=",
 // and error as the reason for the encountered problem.
-func (p *parser) checkHost(ip net.IP, domain, sender string) (Result, string, error) {
+func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, err error) {
+	p.fireCheckHost(ip, domain, sender)
+	defer func() { p.fireCheckHostResult(r, expl, err) }()
 	/*
 	* As per RFC 7208 Section 4.3:
 	* If the <domain> is malformed (e.g., label longer than 63
@@ -121,6 +124,7 @@ func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
 func (p *parser) check() (Result, string, error) {
+	p.fireSPFRecord(p.Query)
 	tokens := lex(p.Query)
 
 	if err := p.sortTokens(tokens); err != nil {
@@ -132,6 +136,7 @@ func (p *parser) check() (Result, string, error) {
 	var err error
 
 	for _, token := range p.Mechanisms {
+		p.fireDirective(token)
 		switch token.mechanism {
 		case tVersion:
 			matches, result, err = p.parseVersion(token)
@@ -152,18 +157,60 @@ func (p *parser) check() (Result, string, error) {
 		}
 
 		if matches {
+			var explanation string
 			if result == Fail && p.Explanation != nil {
-				explanation, expError := p.handleExplanation()
-				return result, explanation, expError
+				explanation, err = p.handleExplanation()
 			}
-			return result, "", err
+			p.fireMatch(token, result, explanation, err)
+			return result, explanation, err
 		}
-
+		p.fireNonMatch(token, result, err)
 	}
 
 	result, err = p.handleRedirect(Neutral)
 
 	return result, "", err
+}
+
+func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.CheckHost(ip, domain, sender)
+}
+
+func (p *parser) fireCheckHostResult(r Result, explanation string, e error) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.CheckHostResult(r, explanation, e)
+}
+
+func (p *parser) fireSPFRecord(s string) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.SPFRecord(s)
+}
+func (p *parser) fireDirective(t *token) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.Directive(t.qualifier.String(), t.mechanism.String(), t.value)
+}
+
+func (p *parser) fireNonMatch(t *token, r Result, e error) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.NonMatch(t.qualifier.String(), t.mechanism.String(), t.value, r, e)
+}
+
+func (p *parser) fireMatch(t *token, r Result, explanation string, e error) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, e)
 }
 
 func (p *parser) sortTokens(tokens []*token) error {
@@ -377,10 +424,12 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 	}
 }
 
-func (p *parser) handleRedirect(oldResult Result) (Result, error) {
+func (p *parser) handleRedirect(curResult Result) (Result, error) {
 	if p.Redirect == nil {
-		return oldResult, nil
+		return curResult, nil
 	}
+
+	p.fireDirective(p.Redirect)
 
 	var (
 		err    error

@@ -55,6 +55,12 @@ func WithResolver(r Resolver) Option {
 	}
 }
 
+func WithListener(l Listener) Option {
+	return func(p *parser) {
+		p.listener = l
+	}
+}
+
 // Result represents result of SPF evaluation as it defined by RFC7208
 // https://tools.ietf.org/html/rfc7208#section-2.6
 type Result int
