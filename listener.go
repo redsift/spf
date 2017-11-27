@@ -40,9 +40,17 @@ func (p *printer) CheckHostResult(r Result, explanation string, err error) {
 }
 
 func (p *printer) Directive(qualifier, mechanism, value string) {
-	fmt.Fprintf(p.w, "%s%s%s", strings.Repeat("  ", p.c), qualifier, mechanism)
+	fmt.Fprintf(p.w, "%s", strings.Repeat("  ", p.c))
+	if qualifier == "+" {
+		qualifier = ""
+	}
+	fmt.Fprintf(p.w, "%s%s", qualifier, mechanism)
 	if value != "" {
-		fmt.Fprintf(p.w, ":%s", value)
+		delimiter := ":"
+		if mechanism == "v" {
+			delimiter = "="
+		}
+		fmt.Fprintf(p.w, "%s%s", delimiter, value)
 	}
 	fmt.Fprintln(p.w)
 }
