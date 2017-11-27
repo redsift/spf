@@ -23,18 +23,22 @@ func MiekgDNSCache(c gcache.Cache) MiekgDNSResolverOption {
 	}
 }
 
-// NewMiekgDNSResolver returns new instance of Resolver with default dns.Client
-func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (Resolver, error) {
-	return NewMiekgDNSResolverWithClient(addr, new(dns.Client), opts...)
+func MiekgDNSClient(c *dns.Client) MiekgDNSResolverOption {
+	return func(r *miekgDNSResolver) {
+		if c == nil {
+			return
+		}
+		r.client = c
+	}
 }
 
-// NewMiekgDNSResolverWithClient returns new instance of Resolver
-func NewMiekgDNSResolverWithClient(addr string, c *dns.Client, opts ...MiekgDNSResolverOption) (Resolver, error) {
+// NewMiekgDNSResolver returns new instance of Resolver with default dns.Client
+func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (Resolver, error) {
 	if _, _, e := net.SplitHostPort(addr); e != nil {
 		return nil, e
 	}
 	r := &miekgDNSResolver{
-		client:     c,
+		client:     new(dns.Client),
 		serverAddr: addr,
 		cache:      nil,
 	}

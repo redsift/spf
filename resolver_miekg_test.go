@@ -109,7 +109,7 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 	client.Timeout = 800 * time.Millisecond
 	var l []Resolver
 	for _, a := range []string{"8.8.8.8:53", "8.8.4.4:53"} {
-		r, err := NewMiekgDNSResolverWithClient(a, client, MiekgDNSCache(dnsCache))
+		r, err := NewMiekgDNSResolver(a, MiekgDNSClient(client), MiekgDNSCache(dnsCache))
 		if err != nil {
 			t.Fatalf("error creating resolver: %s", err)
 		}
@@ -143,7 +143,7 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 
 func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 	client := new(dns.Client)
-	resolver, err := NewMiekgDNSResolverWithClient("8.8.8.8:53", client)
+	resolver, err := NewMiekgDNSResolver("8.8.8.8:53", MiekgDNSClient(client))
 	if err != nil {
 		t.Fatal("Could not create resolver", err)
 	}
