@@ -1,14 +1,11 @@
 package spf
 
 import (
-	"log"
 	"testing"
 
 	"time"
 
 	"net"
-
-	"os"
 
 	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
@@ -159,78 +156,4 @@ func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 	if len(txts) == 0 {
 		t.Error("No TXT records", txts)
 	}
-}
-
-func ExampleWithListener() {
-	r, err := NewMiekgDNSResolver("8.8.8.8:53")
-	if err != nil {
-		log.Fatalf("error creating resolver: %s", err)
-	}
-
-	res, s, err := CheckHost(net.ParseIP("0.0.0.0"), "google.com", "alt4.aspmx.l.google.com",
-		WithResolver(r),
-		WithListener(&printer{w: os.Stdout}),
-	)
-	if err != nil {
-		log.Fatal(res, s, err)
-	}
-
-	// Output:
-	// CHECK_HOST("0.0.0.0", "google.com", "alt4.aspmx.l.google.com")
-	//   SPF: v=spf1 include:_spf.google.com ~all
-	//   v=spf1
-	//   include:_spf.google.com
-	//
-	//   CHECK_HOST("0.0.0.0", "_spf.google.com", "alt4.aspmx.l.google.com")
-	//     SPF: v=spf1 include:_netblocks.google.com include:_netblocks2.google.com include:_netblocks3.google.com ~all
-	//     v=spf1
-	//     include:_netblocks.google.com
-	//
-	//     CHECK_HOST("0.0.0.0", "_netblocks.google.com", "alt4.aspmx.l.google.com")
-	//       SPF: v=spf1 ip4:64.18.0.0/20 ip4:64.233.160.0/19 ip4:66.102.0.0/20 ip4:66.249.80.0/20 ip4:72.14.192.0/18 ip4:74.125.0.0/16 ip4:108.177.8.0/21 ip4:173.194.0.0/16 ip4:207.126.144.0/20 ip4:209.85.128.0/17 ip4:216.58.192.0/19 ip4:216.239.32.0/19 ~all
-	//       v=spf1
-	//       ip4:64.18.0.0/20
-	//       ip4:64.233.160.0/19
-	//       ip4:66.102.0.0/20
-	//       ip4:66.249.80.0/20
-	//       ip4:72.14.192.0/18
-	//       ip4:74.125.0.0/16
-	//       ip4:108.177.8.0/21
-	//       ip4:173.194.0.0/16
-	//       ip4:207.126.144.0/20
-	//       ip4:209.85.128.0/17
-	//       ip4:216.58.192.0/19
-	//       ip4:216.239.32.0/19
-	//       ~all
-	//     = softfail, "", <nil>
-	//
-	//     include:_netblocks2.google.com
-	//
-	//     CHECK_HOST("0.0.0.0", "_netblocks2.google.com", "alt4.aspmx.l.google.com")
-	//       SPF: v=spf1 ip6:2001:4860:4000::/36 ip6:2404:6800:4000::/36 ip6:2607:f8b0:4000::/36 ip6:2800:3f0:4000::/36 ip6:2a00:1450:4000::/36 ip6:2c0f:fb50:4000::/36 ~all
-	//       v=spf1
-	//       ip6:2001:4860:4000::/36
-	//       ip6:2404:6800:4000::/36
-	//       ip6:2607:f8b0:4000::/36
-	//       ip6:2800:3f0:4000::/36
-	//       ip6:2a00:1450:4000::/36
-	//       ip6:2c0f:fb50:4000::/36
-	//       ~all
-	//     = softfail, "", <nil>
-	//
-	//     include:_netblocks3.google.com
-	//
-	//     CHECK_HOST("0.0.0.0", "_netblocks3.google.com", "alt4.aspmx.l.google.com")
-	//       SPF: v=spf1 ip4:172.217.0.0/19 ip4:108.177.96.0/19 ~all
-	//       v=spf1
-	//       ip4:172.217.0.0/19
-	//       ip4:108.177.96.0/19
-	//       ~all
-	//     = softfail, "", <nil>
-	//
-	//     ~all
-	//   = softfail, "", <nil>
-	//
-	//   ~all
-	// = softfail, "", <nil>
 }

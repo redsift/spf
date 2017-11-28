@@ -21,7 +21,9 @@ var (
 // IPMatcherFunc returns true if ip matches to implemented rules.
 // If IPMatcherFunc returns any non nil error, the Resolver must stop
 // any further processing and use the error as resulting error.
-type IPMatcherFunc func(ip net.IP) (bool, error)
+// name is given for information purpose only and
+// could be totally ignored by implementation.
+type IPMatcherFunc func(ip net.IP, name string) (bool, error)
 
 // Resolver provides abstraction for DNS layer
 type Resolver interface {

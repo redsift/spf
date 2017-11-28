@@ -189,7 +189,7 @@ func (r *miekgDNSResolver) Exists(name string) (bool, error) {
 	return len(res.Answer) > 0, nil
 }
 
-func matchIP(rrs []dns.RR, matcher IPMatcherFunc) (bool, error) {
+func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, error) {
 	for _, rr := range rrs {
 		var ip net.IP
 		switch a := rr.(type) {
@@ -198,7 +198,7 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc) (bool, error) {
 		case *dns.AAAA:
 			ip = a.AAAA
 		}
-		if m, e := matcher(ip); m || e != nil {
+		if m, e := matcher(ip, name); m || e != nil {
 			return m, e
 		}
 	}
@@ -227,7 +227,7 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 				return
 			}
 
-			if m, e := matchIP(res.Answer, matcher); m || e != nil {
+			if m, e := matchIP(res.Answer, matcher, name); m || e != nil {
 				hits <- hit{m, e}
 				return
 			}

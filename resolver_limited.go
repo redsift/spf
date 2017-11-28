@@ -94,10 +94,10 @@ func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, err
 	}
 
 	limit := int32(r.mxQueriesLimit)
-	return r.resolver.MatchMX(name, func(ip net.IP) (bool, error) {
+	return r.resolver.MatchMX(name, func(ip net.IP, name string) (bool, error) {
 		if atomic.AddInt32(&limit, -1) < 1 {
 			return false, ErrDNSLimitExceeded
 		}
-		return matcher(ip)
+		return matcher(ip, name)
 	})
 }

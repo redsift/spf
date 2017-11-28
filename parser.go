@@ -317,7 +317,7 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, err := p.resolver.MatchIP(NormalizeFQDN(host), func(ip net.IP) (bool, error) {
+	found, err := p.resolver.MatchIP(NormalizeFQDN(host), func(ip net.IP, _ string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -339,7 +339,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 	}
 
 	result, _ := matchingResult(t.qualifier)
-	found, err := p.resolver.MatchMX(NormalizeFQDN(host), func(ip net.IP) (bool, error) {
+	found, err := p.resolver.MatchMX(NormalizeFQDN(host), func(ip net.IP, _ string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}

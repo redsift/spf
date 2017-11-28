@@ -98,7 +98,7 @@ func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) 
 		return false, err
 	}
 	for _, ip := range ips {
-		if m, e := matcher(ip); m || e != nil {
+		if m, e := matcher(ip, name); m || e != nil {
 			return m, e
 		}
 	}
