@@ -163,8 +163,16 @@ type token struct {
 }
 
 func (t *token) String() string {
-	if t.value == "" {
-		return fmt.Sprintf("%s:%s", t.qualifier.String(), t.mechanism.String())
+	q := t.qualifier.String()
+	if t.qualifier == qPlus {
+		q = ""
 	}
-	return fmt.Sprintf("%s%s:%v", t.qualifier.String(), t.mechanism.String(), t.value)
+	d := ":"
+	if t.mechanism == tVersion {
+		d = "="
+	}
+	if t.value == "" {
+		return fmt.Sprintf("%s%s%s", q, d, t.mechanism.String())
+	}
+	return fmt.Sprintf("%s%s%s%v", q, d, t.mechanism.String(), t.value)
 }
