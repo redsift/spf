@@ -34,6 +34,10 @@ func (e SyntaxError) Error() string {
 	return fmt.Sprintf(`error checking "%s": %s`, e.token.String(), e.err.Error())
 }
 
+func (e SyntaxError) Cause() error {
+	return e.err
+}
+
 // parser represents parsing structure. It keeps all arguments provided by top
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
