@@ -484,11 +484,11 @@ func parseCIDRMask(s string, bits int) (net.IPMask, error) {
 		err error
 	)
 	if l, err = strconv.Atoi(s); err != nil {
-		return nil, errInvalidCIDRLength
+		return nil, ErrInvalidCIDRLength
 	}
 	mask := net.CIDRMask(l, bits)
 	if mask == nil {
-		return nil, errInvalidCIDRLength
+		return nil, ErrInvalidCIDRLength
 	}
 	return mask, nil
 }

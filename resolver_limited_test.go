@@ -43,8 +43,8 @@ func TestLimitedResolver(t *testing.T) {
 			t.Error("failed on 1st LookupTXT")
 		}
 		a, err = r.LookupTXT("domain.")
-		if len(a) != 0 || err != ErrDNSLimitExceeded {
-			t.Error("failed on 2nd LookupTXT")
+		if len(a) == 1 && err != nil {
+			t.Errorf("failed on 2nd LookupTXT with %v", err)
 		}
 	}
 	{
@@ -58,8 +58,8 @@ func TestLimitedResolver(t *testing.T) {
 			t.Error("failed on 2nd Exists")
 		}
 	}
-	newMatcher := func(matchingIP net.IP) func(ip net.IP) (bool, error) {
-		return func(ip net.IP) (bool, error) {
+	newMatcher := func(matchingIP net.IP) func(net.IP, string) (bool, error) {
+		return func(ip net.IP, _ string) (bool, error) {
 			return ip.Equal(matchingIP), nil
 		}
 	}

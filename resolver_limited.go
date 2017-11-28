@@ -17,6 +17,7 @@ type LimitedResolver struct {
 // In addition to that limit, the evaluation of each "MX" record will be limited
 // to mxQueryLimit.
 // All calls over the limit will return ErrDNSLimitExceeded.
+// Make sure lookupLimit includes the initial SPF lookup
 func NewLimitedResolver(r Resolver, lookupLimit, mxQueriesLimit uint16) Resolver {
 	return &LimitedResolver{
 		lookupLimit:    int32(lookupLimit), // sure that l is positive or zero
@@ -30,12 +31,8 @@ func (r *LimitedResolver) canLookup() bool {
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name.
-// Returns nil and ErrDNSLimitExceeded if total number of lookups made
-// by underlying resolver exceed the limit.
+// Used for "exp" modifier and do not cause DNS query.
 func (r *LimitedResolver) LookupTXT(name string) ([]string, error) {
-	if !r.canLookup() {
-		return nil, ErrDNSLimitExceeded
-	}
 	return r.resolver.LookupTXT(name)
 }
 
