@@ -1,0 +1,45 @@
+package spf
+
+import (
+	"encoding/json"
+	"reflect"
+
+	"testing"
+
+	"github.com/bluele/gcache"
+	"github.com/miekg/dns"
+)
+
+func TestCacheDump(t *testing.T) {
+	dns.HandleFunc("multiline.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`multiline.test. 0 IN TXT "v=spf1 ip4:10.0.0.1 ip4:10.0.0" ".2 -all"`,
+		},
+	}))
+	defer dns.HandleRemove("multiline.test.")
+
+	if _, err := testResolver.LookupTXT("multiline.test."); err != nil {
+		t.Error(err)
+	}
+
+	dump := CacheDump(testResolverCache.GetALL())
+
+	json.Marshal(dump)
+	b, err := json.Marshal(dump)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var c CacheDump
+
+	if err := json.Unmarshal(b, &c); err != nil {
+		t.Error(err)
+	}
+
+	gc := gcache.New(1).Build()
+	c.UnloadTo(gc)
+
+	if !reflect.DeepEqual(testResolverCache.GetALL(), gc.GetALL()) {
+		t.Error("want equal got different")
+	}
+}

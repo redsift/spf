@@ -13,7 +13,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-var testResolver Resolver
+var (
+	testResolver      Resolver
+	testResolverCache gcache.Cache
+)
 
 func TestMain(m *testing.M) {
 	s, err := runLocalUDPServer("127.0.0.1:0")
@@ -28,7 +31,9 @@ func TestMain(m *testing.M) {
 		_ = s.Shutdown()
 	}()
 
-	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(), MiekgDNSCache(gcache.New(10).Simple().Build()))
+	testResolverCache = gcache.New(10).Simple().Build()
+
+	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(), MiekgDNSCache(testResolverCache))
 	os.Exit(m.Run())
 }
 
