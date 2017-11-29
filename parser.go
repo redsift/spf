@@ -42,16 +42,13 @@ func (e SyntaxError) Cause() error {
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	Sender      string
-	Domain      string
-	IP          net.IP
-	Query       string
-	Mechanisms  []*token
-	Explanation *token
-	Redirect    *token
-	resolver    Resolver
-	listener    Listener
-	options     []Option
+	sender   string
+	domain   string
+	ip       net.IP
+	query    string
+	resolver Resolver
+	listener Listener
+	options  []Option
 }
 
 // newParser creates new Parser objects and returns its reference.
@@ -59,9 +56,9 @@ type parser struct {
 // during initial DNS lookup.
 func newParser(opts ...Option) *parser {
 	p := &parser{
-		Mechanisms: make([]*token, 0, 10),
-		resolver:   NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:    opts,
+		//mechanisms: make([]*token, 0, 10),
+		resolver: NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:  opts,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -115,10 +112,10 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 }
 
 func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
-	p.Query = query
-	p.Sender = sender
-	p.Domain = domain
-	p.IP = ip
+	p.query = query
+	p.sender = sender
+	p.domain = domain
+	p.ip = ip
 	return p
 }
 
@@ -128,18 +125,18 @@ func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
 func (p *parser) check() (Result, string, error) {
-	p.fireSPFRecord(p.Query)
-	tokens := lex(p.Query)
+	p.fireSPFRecord(p.query)
+	tokens := lex(p.query)
 
-	if err := p.sortTokens(tokens); err != nil {
+	mechanisms, redirect, explanation, err := sortTokens(tokens)
+	if err != nil {
 		return Permerror, "", err
 	}
 
 	var result = Neutral
 	var matches bool
-	var err error
 
-	for _, token := range p.Mechanisms {
+	for _, token := range mechanisms {
 		switch token.mechanism {
 		case tVersion:
 			matches, result, err = p.parseVersion(token)
@@ -162,17 +159,17 @@ func (p *parser) check() (Result, string, error) {
 		}
 
 		if matches {
-			var explanation string
-			if result == Fail && p.Explanation != nil {
-				explanation, err = p.handleExplanation()
+			var s string
+			if result == Fail && explanation != nil {
+				s, err = p.handleExplanation(explanation)
 			}
-			p.fireMatch(token, result, explanation, err)
-			return result, explanation, err
+			p.fireMatch(token, result, s, err)
+			return result, s, err
 		}
 		p.fireNonMatch(token, result, err)
 	}
 
-	result, err = p.handleRedirect(Neutral)
+	result, err = p.handleRedirect(redirect)
 
 	return result, "", err
 }
@@ -218,13 +215,15 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, e error) {
 	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, e)
 }
 
-func (p *parser) sortTokens(tokens []*token) error {
+func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
 	all := false
+	mechanisms = make([]*token, 0, len(tokens))
 	for _, token := range tokens {
 		if token.mechanism.isErr() {
-			return fmt.Errorf("syntax error for token: %v", token.value)
+			err = SyntaxError{token, fmt.Errorf("invalid value: %v", token.value)}
+			return
 		} else if token.mechanism.isMechanism() && !all {
-			p.Mechanisms = append(p.Mechanisms, token)
+			mechanisms = append(mechanisms, token)
 
 			if token.mechanism == tAll {
 				all = true
@@ -232,26 +231,26 @@ func (p *parser) sortTokens(tokens []*token) error {
 		} else {
 
 			if token.mechanism == tRedirect {
-				if p.Redirect == nil {
-					p.Redirect = token
-				} else {
-					return errors.New(`too many "redirect"`)
+				if redirect != nil {
+					err = ErrTooManyRedirects
+					return
 				}
+				redirect = token
 			} else if token.mechanism == tExp {
-				if p.Explanation == nil {
-					p.Explanation = token
-				} else {
-					return errors.New(`too many "exp"`)
+				if explanation != nil {
+					err = ErrTooManyExps
+					return
 				}
+				explanation = token
 			}
 		}
 	}
 
 	if all {
-		p.Redirect = nil
+		redirect = nil
 	}
 
-	return nil
+	return
 }
 
 func nonemptyString(s, def string) string {
@@ -288,14 +287,14 @@ func (p *parser) parseIP4(t *token) (bool, Result, error) {
 		if ip.To4() == nil {
 			return true, Permerror, SyntaxError{t, errors.New("address isn't ipv4")}
 		}
-		return ipnet.Contains(p.IP), result, nil
+		return ipnet.Contains(p.ip), result, nil
 	}
 
 	ip := net.ParseIP(t.value).To4()
 	if ip == nil {
 		return true, Permerror, SyntaxError{t, errors.New("address isn't ipv4")}
 	}
-	return ip.Equal(p.IP), result, nil
+	return ip.Equal(p.ip), result, nil
 }
 
 func (p *parser) parseIP6(t *token) (bool, Result, error) {
@@ -306,7 +305,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 		if ip.To16() == nil {
 			return true, Permerror, SyntaxError{t, errors.New("address isn't ipv6")}
 		}
-		return ipnet.Contains(p.IP), result, nil
+		return ipnet.Contains(p.ip), result, nil
 
 	}
 
@@ -314,12 +313,12 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 	if ip.To4() != nil || ip.To16() == nil {
 		return true, Permerror, SyntaxError{t, errors.New("address isn't ipv6")}
 	}
-	return ip.Equal(p.IP), result, nil
+	return ip.Equal(p.ip), result, nil
 
 }
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.Domain))
+	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.domain))
 	host = NormalizeFQDN(host)
 	p.fireDirective(t, host)
 	if err != nil {
@@ -338,13 +337,13 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 		case net.IPv6len:
 			n.Mask = ip6Mask
 		}
-		return n.Contains(p.IP), nil
+		return n.Contains(p.ip), nil
 	})
 	return found, result, err
 }
 
 func (p *parser) parseMX(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.Domain))
+	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.domain))
 	host = NormalizeFQDN(host)
 	p.fireDirective(t, host)
 	if err != nil {
@@ -362,7 +361,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 		case net.IPv6len:
 			n.Mask = ip6Mask
 		}
-		return n.Contains(p.IP), nil
+		return n.Contains(p.ip), nil
 	})
 	return found, result, err
 }
@@ -373,7 +372,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
 	}
-	theirResult, _, err := p.checkHost(p.IP, domain, p.Sender)
+	theirResult, _, err := p.checkHost(p.ip, domain, p.sender)
 
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
@@ -440,9 +439,9 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 	}
 }
 
-func (p *parser) handleRedirect(curResult Result) (Result, error) {
-	if p.Redirect == nil {
-		return curResult, nil
+func (p *parser) handleRedirect(t *token) (Result, error) {
+	if t == nil {
+		return Neutral, nil
 	}
 
 	var (
@@ -450,11 +449,11 @@ func (p *parser) handleRedirect(curResult Result) (Result, error) {
 		result Result
 	)
 
-	redirectDomain := NormalizeFQDN(p.Redirect.value)
+	redirectDomain := NormalizeFQDN(t.value)
 
-	p.fireDirective(p.Redirect, redirectDomain)
+	p.fireDirective(t, redirectDomain)
 
-	if result, _, err = p.checkHost(p.IP, redirectDomain, p.Sender); err != nil {
+	if result, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
 		//TODO(zaccone): confirm result value
 		result = Permerror
 	} else if result == None || result == Permerror {
@@ -468,13 +467,13 @@ func (p *parser) handleRedirect(curResult Result) (Result, error) {
 	return result, err
 }
 
-func (p *parser) handleExplanation() (string, error) {
-	domain, err := parseMacroToken(p, p.Explanation)
+func (p *parser) handleExplanation(t *token) (string, error) {
+	domain, err := parseMacroToken(p, t)
 	if err != nil {
-		return "", SyntaxError{p.Explanation, err}
+		return "", SyntaxError{t, err}
 	}
 	if domain == "" {
-		return "", SyntaxError{p.Explanation, errors.New("empty domain")}
+		return "", SyntaxError{t, errors.New("empty domain")}
 	}
 
 	txts, err := p.resolver.LookupTXT(NormalizeFQDN(domain))
@@ -486,7 +485,7 @@ func (p *parser) handleExplanation() (string, error) {
 	// concatenated with no spaces.
 	exp, err := parseMacro(p, strings.Join(txts, ""))
 	if err != nil {
-		return "", SyntaxError{p.Explanation, err}
+		return "", SyntaxError{t, err}
 	}
 	return exp, nil
 }

@@ -25,20 +25,17 @@ var (
 func TestNewParserFunction(t *testing.T) {
 	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 
-	if p.Sender != stub {
-		t.Error("Sender mismatch, got: ", p.Sender, " expected ", stub)
+	if p.sender != stub {
+		t.Error("sender mismatch, got: ", p.sender, " expected ", stub)
 	}
-	if p.Domain != stub {
-		t.Error("Domain mismatch, got: ", p.Domain, " expected ", stub)
+	if p.domain != stub {
+		t.Error("domain mismatch, got: ", p.domain, " expected ", stub)
 	}
-	if p.Query != stub {
-		t.Error("Query mismatch, got: ", p.Query, " expected ", stub)
+	if p.query != stub {
+		t.Error("query mismatch, got: ", p.query, " expected ", stub)
 	}
-	if !ip.Equal(p.IP) {
-		t.Error("IP mismatch, got: ", p.IP, " expected ", ip)
-	}
-	if p.Redirect != nil || p.Explanation != nil {
-		t.Error("Parser Redirect and Explanation must be nil, ", p)
+	if !ip.Equal(p.ip) {
+		t.Error("IP mismatch, got: ", p.ip, " expected ", ip)
 	}
 }
 
@@ -164,24 +161,21 @@ func TestTokensSoriting(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
-		_ = p.sortTokens(testcase.Tokens)
+		mechanisms, redirect, explanation, _ := sortTokens(testcase.Tokens)
 
-		if !reflect.DeepEqual(p.Mechanisms, testcase.ExpTokens) {
-			t.Error("Mechanisms mistmatch, got: ", p.Mechanisms,
+		if !reflect.DeepEqual(mechanisms, testcase.ExpTokens) {
+			t.Error("mechanisms mistmatch, got: ", mechanisms,
 				" expected: ", testcase.ExpTokens)
 		}
-		if !reflect.DeepEqual(p.Redirect, testcase.Redirect) {
+		if !reflect.DeepEqual(redirect, testcase.Redirect) {
 			t.Error("Expected Redirect to be", testcase.Redirect,
-				" got ", p.Redirect)
+				" got ", redirect)
 		}
-		if !reflect.DeepEqual(p.Explanation, testcase.Explanation) {
+		if !reflect.DeepEqual(explanation, testcase.Explanation) {
 			t.Error("Expected Explanation to be", testcase.Explanation,
-				" got ", p.Explanation, " testcase ", p.Explanation, p.Redirect)
+				" got ", explanation, " testcase ", explanation, redirect)
 		}
-
 	}
-
 }
 
 func TestTokensSoritingHandleErrors(t *testing.T) {
@@ -220,8 +214,7 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
-		if err := p.sortTokens(testcase.Tokens); err == nil {
+		if _, _, _, err := sortTokens(testcase.Tokens); err == nil {
 			t.Error("We should have gotten an error, ")
 		}
 	}
@@ -545,7 +538,7 @@ func TestParseMX(t *testing.T) {
 
 	for i, testcase := range testcases {
 		for _, ip := range ips {
-			p.IP = ip
+			p.ip = ip
 			match, result, _ = p.parseMX(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("#%d Match mismatch, expected %v, got %v", i, testcase.Match, match)
@@ -651,7 +644,7 @@ func TestParseInclude(t *testing.T) {
 
 	for i, testcase := range testcases {
 		for j, ip := range ips {
-			p.IP = ip
+			p.ip = ip
 			match, result, _ := p.parseInclude(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("#%d.%d Match mismatch, expected %v, got %v", i, j, testcase.Match, match)
@@ -728,7 +721,7 @@ func TestParseIncludeNegative(t *testing.T) {
 
 	for _, testcase := range testcases {
 		for _, ip := range ips {
-			p.IP = ip
+			p.ip = ip
 			match, result, _ = p.parseInclude(testcase.Input)
 			if testcase.Match != match {
 				t.Error("IP:", ip, ":", testcase.Input.value, ": Match mismatch, expected ", testcase.Match, " got ", match)

@@ -147,7 +147,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	switch r {
 	case 's':
-		curItem = item{p.Sender, negative, delimiter, false}
+		curItem = item{p.sender, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -157,7 +157,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 
 	case 'l':
-		email = parseAddrSpec(p.Sender, p.Sender)
+		email = parseAddrSpec(p.sender, p.sender)
 		curItem = item{email.local, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
@@ -168,7 +168,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 
 	case 'o':
-		email = parseAddrSpec(p.Sender, p.Sender)
+		email = parseAddrSpec(p.sender, p.sender)
 		curItem = item{email.domain, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
@@ -179,7 +179,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 
 	case 'd', 'h':
-		curItem = item{p.Domain, negative, delimiter, false}
+		curItem = item{p.domain, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -189,7 +189,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 
 	case 'i':
-		curItem = item{p.IP.String(), negative, delimiter, false}
+		curItem = item{p.ip.String(), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -202,7 +202,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		// let's not use it for the moment, RFC doesn't recommend it.
 	case 'v':
 		// TODO(zaccone): move such functions to some generic utils module
-		if p.IP.To4() == nil {
+		if p.ip.To4() == nil {
 			m.output = append(m.output, "ip6")
 		} else {
 			m.output = append(m.output, "in-addr")

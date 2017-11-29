@@ -16,6 +16,8 @@ var (
 	ErrSPFNotFound       = errors.New("SPF record not found")
 	ErrInvalidCIDRLength = errors.New("invalid CIDR length")
 	ErrTooManySPFRecords = errors.New("too many SPF records")
+	ErrTooManyRedirects  = errors.New(`too many "redirect"`)
+	ErrTooManyExps       = errors.New(`too many "exp"`)
 )
 
 // IPMatcherFunc returns true if ip matches to implemented rules.
