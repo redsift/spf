@@ -33,7 +33,9 @@ func TestMain(m *testing.M) {
 
 	testResolverCache = gcache.New(10).Simple().Build()
 
-	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(), MiekgDNSCache(testResolverCache))
+	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(),
+		MiekgDNSCache(testResolverCache),
+		MiekgDNSParallelism(1))
 	os.Exit(m.Run())
 }
 

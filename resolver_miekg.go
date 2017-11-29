@@ -14,6 +14,17 @@ import (
 
 type MiekgDNSResolverOption func(r *miekgDNSResolver)
 
+// MiekgDNSParallelism change parallelism level of matching IP and MX
+// Anything less than 1 means unlimited
+func MiekgDNSParallelism(n int) MiekgDNSResolverOption {
+	return func(r *miekgDNSResolver) {
+		if n < 1 {
+			return
+		}
+		r.parallelism = n
+	}
+}
+
 func MiekgDNSCache(c gcache.Cache) MiekgDNSResolverOption {
 	return func(r *miekgDNSResolver) {
 		if c == nil {
@@ -50,10 +61,11 @@ func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (Resolver,
 
 // miekgDNSResolver implements Resolver using github.com/miekg/dns
 type miekgDNSResolver struct {
-	mu         sync.Mutex
-	client     *dns.Client
-	cache      gcache.Cache
-	serverAddr string
+	mu          sync.Mutex
+	client      *dns.Client
+	cache       gcache.Cache
+	serverAddr  string
+	parallelism int
 }
 
 func (r *miekgDNSResolver) cachedResponse(req *dns.Msg) (*dns.Msg, bool) {
@@ -216,7 +228,7 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 
 	for _, qType := range qTypes {
 		wg.Add(1)
-		go func(qType uint16) {
+		lookup := func(qType uint16) {
 			defer wg.Done()
 
 			req := new(dns.Msg)
@@ -231,7 +243,12 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 				hits <- hit{m, e}
 				return
 			}
-		}(qType)
+		}
+		if r.parallelism < 2 { // only 2 types of lookup defined
+			go lookup(qType)
+		} else {
+			lookup(qType)
+		}
 	}
 
 	go func() {
@@ -264,17 +281,26 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, er
 	var wg sync.WaitGroup
 	hits := make(chan hit, len(res.Answer))
 
+	var names chan string
+	if r.parallelism < 1 {
+		names = make(chan string, len(res.Answer))
+	} else {
+		names = make(chan string, r.parallelism)
+	}
+
 	for _, rr := range res.Answer {
 		mx, ok := rr.(*dns.MX)
 		if !ok {
 			continue
 		}
 		wg.Add(1)
-		go func(name string) {
+		go func() {
+			name := <-names
 			found, err := r.MatchIP(name, matcher)
 			hits <- hit{found, err}
 			wg.Done()
-		}(mx.Mx)
+		}()
+		names <- mx.Mx
 	}
 
 	go func() {
