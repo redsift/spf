@@ -19,7 +19,7 @@ func matchingResult(qualifier tokenType) (Result, error) {
 	case qTilde:
 		return Softfail, nil
 	default:
-		return internalError, fmt.Errorf("invalid qualifier (%d)", qualifier) // TODO it's fishy; lexer must reject it before
+		return internalError, fmt.Errorf("invalid qualifier (%d)", qualifier) // should not happen, lexer must reject it before
 	}
 }
 
@@ -368,7 +368,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain := t.value
+	domain := NormalizeFQDN(t.value)
 	p.fireDirective(t, domain)
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
@@ -450,7 +450,7 @@ func (p *parser) handleRedirect(curResult Result) (Result, error) {
 		result Result
 	)
 
-	redirectDomain := p.Redirect.value
+	redirectDomain := NormalizeFQDN(p.Redirect.value)
 
 	p.fireDirective(p.Redirect, redirectDomain)
 

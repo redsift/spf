@@ -68,7 +68,7 @@ func WithListener(l Listener) Option {
 type Result int
 
 const (
-	_ Result = iota // TODO was Illegal, saved for padding only, however it is not used internally and could be removed
+	_ Result = iota
 
 	// None means either (a) no syntactically valid DNS
 	// domain name was extracted from the SMTP session that could be used
@@ -239,7 +239,7 @@ func NormalizeFQDN(name string) string {
 		return ""
 	}
 	if name[len(name)-1] != '.' {
-		return name + "."
+		name = name + "."
 	}
-	return name
+	return strings.ToLower(name)
 }
