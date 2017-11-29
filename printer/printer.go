@@ -36,7 +36,7 @@ func (p *Printer) CheckHostResult(r spf.Result, explanation string, err error) {
 	fmt.Fprintf(p.w, "%s= %s, %q, %v\n", strings.Repeat("  ", p.c), r, explanation, err)
 }
 
-func (p *Printer) Directive(qualifier, mechanism, value, effectiveValue string) {
+func (p *Printer) Directive(_ bool, qualifier, mechanism, value, effectiveValue string) {
 	fmt.Fprintf(p.w, "%s", strings.Repeat("  ", p.c))
 	if qualifier == "+" {
 		qualifier = ""
@@ -61,7 +61,7 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 	//fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
 }
 
-func (p *Printer) Redirect(domain string) {
+func (p *Printer) Redirect(_ bool, domain string) {
 	fmt.Fprintf(p.w, "%s REDIRECT: %s\n", strings.Repeat("  ", p.c), domain)
 }
 

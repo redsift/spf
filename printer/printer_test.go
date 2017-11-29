@@ -16,7 +16,7 @@ func ExamplePrinter() {
 
 	p := New(os.Stdout, r)
 
-	res, s, err := spf.CheckHost(net.ParseIP("74.125.140.27"), "subito.it", "aspmx.l.google.com",
+	res, s, err := spf.CheckHost(net.ParseIP("74.125.140.27"), "test18.irkov.co.uk", "aspmx.l.google.com",
 		spf.WithResolver(p),
 		spf.WithListener(p),
 	)
@@ -26,6 +26,7 @@ func ExamplePrinter() {
 
 	// Because IPs for google MXs are changing, we can't use Output validation
 	// add new line after this one to enable it.
+
 	// Output:
 	// CHECK_HOST("74.125.140.27", "subito.it", "aspmx.l.google.com")
 	//     lookup(TXT:strict) subito.it.

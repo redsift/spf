@@ -38,6 +38,10 @@ func (e SyntaxError) Cause() error {
 	return e.err
 }
 
+func (e SyntaxError) TokenString() string {
+	return e.token.String()
+}
+
 // parser represents parsing structure. It keeps all arguments provided by top
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
@@ -198,7 +202,7 @@ func (p *parser) fireDirective(t *token, effectiveValue string) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Directive(t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
+	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
 }
 
 func (p *parser) fireNonMatch(t *token, r Result, e error) {
