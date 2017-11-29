@@ -140,7 +140,6 @@ func (p *parser) check() (Result, string, error) {
 	var err error
 
 	for _, token := range p.Mechanisms {
-		p.fireDirective(token)
 		switch token.mechanism {
 		case tVersion:
 			matches, result, err = p.parseVersion(token)
@@ -158,6 +157,8 @@ func (p *parser) check() (Result, string, error) {
 			matches, result, err = p.parseInclude(token)
 		case tExists:
 			matches, result, err = p.parseExists(token)
+		default:
+			p.fireDirective(token, "")
 		}
 
 		if matches {
@@ -196,11 +197,11 @@ func (p *parser) fireSPFRecord(s string) {
 	}
 	p.listener.SPFRecord(s)
 }
-func (p *parser) fireDirective(t *token) {
+func (p *parser) fireDirective(t *token, effectiveValue string) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Directive(t.qualifier.String(), t.mechanism.String(), t.value)
+	p.listener.Directive(t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
 }
 
 func (p *parser) fireNonMatch(t *token, r Result, e error) {
@@ -261,6 +262,7 @@ func nonemptyString(s, def string) string {
 }
 
 func (p *parser) parseVersion(t *token) (bool, Result, error) {
+	p.fireDirective(t, "")
 	if t.value == "spf1" {
 		return false, None, nil
 	}
@@ -269,6 +271,7 @@ func (p *parser) parseVersion(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseAll(t *token) (bool, Result, error) {
+	p.fireDirective(t, "")
 	result, err := matchingResult(t.qualifier)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
@@ -279,6 +282,7 @@ func (p *parser) parseAll(t *token) (bool, Result, error) {
 
 func (p *parser) parseIP4(t *token) (bool, Result, error) {
 	result, _ := matchingResult(t.qualifier)
+	p.fireDirective(t, t.value)
 
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To4() == nil {
@@ -297,6 +301,7 @@ func (p *parser) parseIP4(t *token) (bool, Result, error) {
 func (p *parser) parseIP6(t *token) (bool, Result, error) {
 	result, _ := matchingResult(t.qualifier)
 
+	p.fireDirective(t, t.value)
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To16() == nil {
 			return true, Permerror, SyntaxError{t, errors.New("address isn't ipv6")}
@@ -315,13 +320,15 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
 	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.Domain))
+	host = NormalizeFQDN(host)
+	p.fireDirective(t, host)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, err := p.resolver.MatchIP(NormalizeFQDN(host), func(ip net.IP, _ string) (bool, error) {
+	found, err := p.resolver.MatchIP(host, func(ip net.IP, _ string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -338,12 +345,14 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 
 func (p *parser) parseMX(t *token) (bool, Result, error) {
 	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.Domain))
+	host = NormalizeFQDN(host)
+	p.fireDirective(t, host)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
-	found, err := p.resolver.MatchMX(NormalizeFQDN(host), func(ip net.IP, _ string) (bool, error) {
+	found, err := p.resolver.MatchMX(host, func(ip net.IP, _ string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -360,6 +369,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	domain := t.value
+	p.fireDirective(t, domain)
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
 	}
@@ -408,6 +418,8 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 
 func (p *parser) parseExists(t *token) (bool, Result, error) {
 	resolvedDomain, err := parseMacroToken(p, t)
+	resolvedDomain = NormalizeFQDN(resolvedDomain)
+	p.fireDirective(t, resolvedDomain)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
 	}
@@ -417,7 +429,7 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, err := p.resolver.Exists(NormalizeFQDN(resolvedDomain))
+	found, err := p.resolver.Exists(resolvedDomain)
 	switch err {
 	case nil:
 		return found, result, nil
@@ -433,14 +445,14 @@ func (p *parser) handleRedirect(curResult Result) (Result, error) {
 		return curResult, nil
 	}
 
-	p.fireDirective(p.Redirect)
-
 	var (
 		err    error
 		result Result
 	)
 
 	redirectDomain := p.Redirect.value
+
+	p.fireDirective(p.Redirect, redirectDomain)
 
 	if result, _, err = p.checkHost(p.IP, redirectDomain, p.Sender); err != nil {
 		//TODO(zaccone): confirm result value

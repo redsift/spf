@@ -23,9 +23,6 @@ type Printer struct {
 }
 
 func (p *Printer) CheckHost(ip net.IP, domain, sender string) {
-	if p.c != 0 {
-		fmt.Fprintln(p.w)
-	}
 	fmt.Fprintf(p.w, "%sCHECK_HOST(%q, %q, %q)\n", strings.Repeat("  ", p.c), ip, domain, sender)
 	p.c++
 }
@@ -36,21 +33,22 @@ func (p *Printer) SPFRecord(s string) {
 
 func (p *Printer) CheckHostResult(r spf.Result, explanation string, err error) {
 	p.c--
-	fmt.Fprintf(p.w, "%s= %s, %q, %v\n\n", strings.Repeat("  ", p.c), r, explanation, err)
+	fmt.Fprintf(p.w, "%s= %s, %q, %v\n", strings.Repeat("  ", p.c), r, explanation, err)
 }
 
-func (p *Printer) Directive(qualifier, mechanism, value string) {
+func (p *Printer) Directive(qualifier, mechanism, value, effectiveValue string) {
 	fmt.Fprintf(p.w, "%s", strings.Repeat("  ", p.c))
 	if qualifier == "+" {
 		qualifier = ""
 	}
 	fmt.Fprintf(p.w, "%s%s", qualifier, mechanism)
-	if value != "" {
-		delimiter := ":"
-		if mechanism == "v" {
-			delimiter = "="
-		}
-		fmt.Fprintf(p.w, "%s%s", delimiter, value)
+	delimiter := ":"
+	if mechanism == "v" {
+		delimiter = "="
+	}
+	fmt.Fprintf(p.w, "%s%s", delimiter, value)
+	if effectiveValue != "" {
+		fmt.Fprintf(p.w, " (%s)", effectiveValue)
 	}
 	fmt.Fprintln(p.w)
 }
@@ -68,24 +66,24 @@ func (p *Printer) Redirect(domain string) {
 }
 
 func (p *Printer) LookupTXT(name string) ([]string, error) {
-	fmt.Fprintf(p.w, "%s  dns(txt)\n", strings.Repeat("  ", p.c))
+	fmt.Fprintf(p.w, "%s  lookup(TXT) %s\n", strings.Repeat("  ", p.c), name)
 	return p.r.LookupTXT(name)
 }
 
 func (p *Printer) LookupTXTStrict(name string) ([]string, error) {
-	fmt.Fprintf(p.w, "%s  dns(txt:strict)\n", strings.Repeat("  ", p.c))
+	fmt.Fprintf(p.w, "%s  lookup(TXT:strict) %s\n", strings.Repeat("  ", p.c), name)
 	return p.r.LookupTXTStrict(name)
 }
 
 func (p *Printer) Exists(name string) (bool, error) {
-	fmt.Fprintf(p.w, "%s  dns(exists)\n", strings.Repeat("  ", p.c))
+	fmt.Fprintf(p.w, "%s  lookup(A)\n", strings.Repeat("  ", p.c))
 	return p.r.Exists(name)
 }
 
 func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, error) {
 	return p.r.MatchIP(name, func(ip net.IP, fqdn string) (bool, error) {
 		r, e := matcher(ip, fqdn)
-		fmt.Fprintf(p.w, "%s  dns(ip:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
+		fmt.Fprintf(p.w, "%s  lookup(A,AAAA:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
 		return r, e
 	})
 }
@@ -93,7 +91,7 @@ func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, error) 
 func (p *Printer) MatchMX(name string, matcher spf.IPMatcherFunc) (bool, error) {
 	return p.r.MatchMX(name, func(ip net.IP, fqdn string) (bool, error) {
 		r, e := matcher(ip, fqdn)
-		fmt.Fprintf(p.w, "%s  dns(mx:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
+		fmt.Fprintf(p.w, "%s  lookup(MX:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
 		return r, e
 	})
 }
