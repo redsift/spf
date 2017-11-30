@@ -19,7 +19,7 @@ func matchingResult(qualifier tokenType) (Result, error) {
 	case qTilde:
 		return Softfail, nil
 	default:
-		return internalError, fmt.Errorf("invalid qualifier (%d)", qualifier) // should not happen, lexer must reject it before
+		return internalError, fmt.Errorf("invalid qualifier")
 	}
 }
 
@@ -31,7 +31,7 @@ type SyntaxError struct {
 }
 
 func (e SyntaxError) Error() string {
-	return fmt.Sprintf(`error checking "%s": %s`, e.token.String(), e.err.Error())
+	return fmt.Sprintf(`error checking '%s': %s`, e.token.String(), e.err.Error())
 }
 
 func (e SyntaxError) Cause() error {
@@ -251,8 +251,8 @@ func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *to
 	all := false
 	mechanisms = make([]*token, 0, len(tokens))
 	for _, token := range tokens {
-		if token.mechanism.isErr() {
-			err = SyntaxError{token, fmt.Errorf("invalid value: %v", token.value)}
+		if token.isErr() {
+			err = SyntaxError{token, ErrSyntaxError}
 			return
 		} else if token.mechanism.isMechanism() && !all {
 			mechanisms = append(mechanisms, token)

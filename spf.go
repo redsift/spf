@@ -18,6 +18,7 @@ var (
 	ErrTooManySPFRecords = errors.New("too many SPF records")
 	ErrTooManyRedirects  = errors.New(`too many "redirect"`)
 	ErrTooManyExps       = errors.New(`too many "exp"`)
+	ErrSyntaxError       = errors.New(`wrong syntax`)
 )
 
 // IPMatcherFunc returns true if ip matches to implemented rules.

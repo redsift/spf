@@ -89,20 +89,28 @@ func (l *lexer) scanWhitespaces() {
 // The default token has `mechanism` set to tErr, that is, error state.
 func (l *lexer) scanIdent() *token {
 	t := &token{tErr, qPlus, ""}
+	start := l.start
 	cursor := l.start
 	hasQualifier := false
 	for cursor < l.pos {
 		ch, size := utf8.DecodeRuneInString(l.input[cursor:])
 		cursor += size
 
-		if isQualifier(ch) && !hasQualifier {
-			hasQualifier = true
-			t.qualifier, _ = qualifiers[ch]
+		if isQualifier(ch) {
+			if hasQualifier {
+				t.qualifier = qErr // multiple qualifiers
+			} else {
+				t.qualifier, _ = qualifiers[ch]
+				hasQualifier = true
+			}
 			l.start = cursor
 			continue
-		} else if isDelimiter(ch) { // add error handling
-			t.mechanism = tokenTypeFromString(l.input[l.start : cursor-size])
-			t.value = strings.TrimSpace(l.input[cursor:l.pos])
+		}
+		if isDelimiter(ch) { // add error handling
+			if t.qualifier != qErr {
+				t.mechanism = tokenTypeFromString(l.input[l.start : cursor-size])
+				t.value = strings.TrimSpace(l.input[cursor:l.pos])
+			}
 
 			if t.value == "" || !checkTokenSyntax(t, ch) {
 				t.qualifier = qErr
@@ -113,14 +121,15 @@ func (l *lexer) scanIdent() *token {
 		}
 	}
 
-	if t.mechanism.isErr() {
-		t.mechanism = tokenTypeFromString(
-			strings.TrimSpace(l.input[l.start:cursor]))
-		if t.mechanism.isErr() {
+	if t.isErr() {
+		t.mechanism = tokenTypeFromString(strings.TrimSpace(l.input[l.start:cursor]))
+		if t.isErr() {
+			t.mechanism = tErr
 			t.qualifier = qErr
-			t.value = ""
+			t.value = strings.TrimSpace(l.input[start:l.pos])
 		}
 	}
+
 	return t
 }
 

@@ -114,8 +114,6 @@ func tokenTypeFromString(s string) tokenType {
 	}
 }
 
-func (tok tokenType) isErr() bool { return tok == tErr }
-
 func (tok tokenType) isMechanism() bool {
 	return tok > mechanismBeg && tok < mechanismEnd
 }
@@ -162,17 +160,27 @@ type token struct {
 	value     string    // value for a mechanism
 }
 
+func (t *token) isErr() bool {
+	return t.mechanism == tErr || t.qualifier == qErr
+}
+
 func (t *token) String() string {
+	if t == nil {
+		return ""
+	}
+	if t.mechanism == tErr || t.qualifier == qErr {
+		return fmt.Sprint(t.value)
+	}
 	q := t.qualifier.String()
 	if t.qualifier == qPlus {
 		q = ""
 	}
+	if t.value == "" {
+		return fmt.Sprintf("%s%s", q, t.mechanism.String())
+	}
 	d := ":"
 	if t.mechanism == tVersion {
 		d = "="
-	}
-	if t.value == "" {
-		return fmt.Sprintf("%s%s", q, t.mechanism.String())
 	}
 	return fmt.Sprintf("%s%s%s%s", q, t.mechanism.String(), d, t.value)
 }

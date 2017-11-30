@@ -49,19 +49,19 @@ func TestLexerScanIdent(t *testing.T) {
 		{"?a:127.0.0.1   ", &token{tA, qQuestionMark, "127.0.0.1"}},
 		{"?ip6:2001::43   ", &token{tIP6, qQuestionMark, "2001::43"}},
 		{"+ip6:::1", &token{tIP6, qPlus, "::1"}},
-		{"^ip6:2001::4", &token{tErr, qErr, ""}},
+		{"^ip6:2001::4", &token{tErr, qErr, "^ip6:2001::4"}},
 		{"-all", &token{tAll, qMinus, ""}},
 		{"-all ", &token{tAll, qMinus, ""}},
 		{"-mx:localhost", &token{tMX, qMinus, "localhost"}},
 		{"mx", &token{tMX, qPlus, ""}},
-		{"a:", &token{tErr, qErr, ""}},
+		{"a:", &token{tErr, qErr, "a:"}},
 		{"?mx:localhost", &token{tMX, qQuestionMark, "localhost"}},
-		{"?random:localhost", &token{tErr, qErr, ""}},
-		{"-:localhost", &token{tErr, qErr, ""}},
+		{"?random:localhost", &token{tErr, qErr, "?random:localhost"}},
+		{"-:localhost", &token{tErr, qErr, "-:localhost"}},
 		{"", &token{tErr, qErr, ""}},
-		{"qowie", &token{tErr, qErr, ""}},
-		{"~+all", &token{tErr, qErr, ""}},
-		{"-~all", &token{tErr, qErr, ""}},
+		{"qowie", &token{tErr, qErr, "qowie"}},
+		{"~+all", &token{tErr, qErr, "~+all"}},
+		{"-~all", &token{tErr, qErr, "-~all"}},
 	}
 
 	for _, testpair := range testpairs {
@@ -111,7 +111,7 @@ func TestLexFunc(t *testing.T) {
 		{"v=spf1  include=example.org -all  ",
 			[]*token{
 				versionToken,
-				{tErr, qErr, ""},
+				{tErr, qErr, "include=example.org"},
 				{tAll, qMinus, ""}}},
 		{"v=spf1  exists:%{ir}.%{l1r+-}._spf.%{d} +all",
 			[]*token{
@@ -131,7 +131,6 @@ func TestLexFunc(t *testing.T) {
 	}
 
 	for _, testpair := range testpairs {
-
 		ltok := lex(testpair.Record)
 		if !reflect.DeepEqual(testpair.Tokens, ltok) {
 			t.Error("Expected tokens ", testpair.Tokens, " got ", ltok)

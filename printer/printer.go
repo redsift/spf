@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 
+	"sync"
+
 	"github.com/redsift/spf"
 )
 
@@ -17,9 +19,11 @@ func New(w io.Writer, r spf.Resolver) *Printer {
 }
 
 type Printer struct {
-	w io.Writer
-	c int
-	r spf.Resolver
+	sync.Mutex
+	w    io.Writer
+	c    int
+	r    spf.Resolver
+	done bool
 }
 
 func (p *Printer) CheckHost(ip net.IP, domain, sender string) {
@@ -32,7 +36,10 @@ func (p *Printer) SPFRecord(s string) {
 }
 
 func (p *Printer) CheckHostResult(r spf.Result, explanation string, err error) {
+	p.Lock()
+	defer p.Unlock()
 	p.c--
+	p.done = p.c == 0
 	fmt.Fprintf(p.w, "%s= %s, %q, %v\n", strings.Repeat("  ", p.c), r, explanation, err)
 }
 
@@ -83,6 +90,11 @@ func (p *Printer) Exists(name string) (bool, error) {
 
 func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, error) {
 	return p.r.MatchIP(name, func(ip net.IP, fqdn string) (bool, error) {
+		p.Lock()
+		defer p.Unlock()
+		if p.done {
+			return false, nil
+		}
 		r, e := matcher(ip, fqdn)
 		fmt.Fprintf(p.w, "%s  lookup(A,AAAA:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
 		return r, e
@@ -91,6 +103,11 @@ func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, error) 
 
 func (p *Printer) MatchMX(name string, matcher spf.IPMatcherFunc) (bool, error) {
 	return p.r.MatchMX(name, func(ip net.IP, fqdn string) (bool, error) {
+		p.Lock()
+		defer p.Unlock()
+		if p.done {
+			return false, nil
+		}
 		r, e := matcher(ip, fqdn)
 		fmt.Fprintf(p.w, "%s  lookup(MX:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
 		return r, e

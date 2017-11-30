@@ -24,7 +24,6 @@ func TestCacheDump(t *testing.T) {
 
 	dump := CacheDump(testResolverCache.GetALL())
 
-	json.Marshal(dump)
 	b, err := json.Marshal(dump)
 	if err != nil {
 		t.Error(err)
