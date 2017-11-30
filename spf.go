@@ -19,6 +19,9 @@ var (
 	ErrTooManyRedirects  = errors.New(`too many "redirect"`)
 	ErrTooManyExps       = errors.New(`too many "exp"`)
 	ErrSyntaxError       = errors.New(`wrong syntax`)
+	ErrEmptyDomain       = errors.New("empty domain")
+	ErrNotIPv4           = errors.New("address isn't ipv4")
+	ErrNotIPv6           = errors.New("address isn't ipv6")
 )
 
 // IPMatcherFunc returns true if ip matches to implemented rules.

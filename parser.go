@@ -1,7 +1,6 @@
 package spf
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -248,33 +247,30 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, e error) {
 }
 
 func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
-	all := false
 	mechanisms = make([]*token, 0, len(tokens))
 	for _, token := range tokens {
 		if token.isErr() {
 			err = SyntaxError{token, ErrSyntaxError}
 			return
-		} else if token.mechanism.isMechanism() && !all {
+		}
+		if token.mechanism.isMechanism() {
 			mechanisms = append(mechanisms, token)
-
-			if token.mechanism == tAll {
-				all = true
+			continue
+		}
+		if token.mechanism == tRedirect {
+			if redirect != nil {
+				err = ErrTooManyRedirects
+				return
 			}
-		} else {
-
-			if token.mechanism == tRedirect {
-				if redirect != nil {
-					err = ErrTooManyRedirects
-					return
-				}
-				redirect = token
-			} else if token.mechanism == tExp {
-				if explanation != nil {
-					err = ErrTooManyExps
-					return
-				}
-				explanation = token
+			redirect = token
+		}
+		if token.mechanism == tExp {
+			if explanation != nil {
+				err = ErrTooManyExps
+				return
 			}
+			explanation = token
+			continue
 		}
 	}
 
@@ -308,41 +304,41 @@ func (p *parser) parseAll(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseIP4(t *token) (bool, Result, error) {
-	result, _ := matchingResult(t.qualifier)
 	p.fireDirective(t, t.value)
+
+	result, _ := matchingResult(t.qualifier)
 
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To4() == nil {
-			return true, Permerror, SyntaxError{t, errors.New("address isn't ipv4")}
+			return true, Permerror, SyntaxError{t, ErrNotIPv4}
 		}
 		return ipnet.Contains(p.ip), result, nil
 	}
 
 	ip := net.ParseIP(t.value).To4()
 	if ip == nil {
-		return true, Permerror, SyntaxError{t, errors.New("address isn't ipv4")}
+		return true, Permerror, SyntaxError{t, ErrNotIPv4}
 	}
 	return ip.Equal(p.ip), result, nil
 }
 
 func (p *parser) parseIP6(t *token) (bool, Result, error) {
+	p.fireDirective(t, t.value)
+
 	result, _ := matchingResult(t.qualifier)
 
-	p.fireDirective(t, t.value)
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To16() == nil {
-			return true, Permerror, SyntaxError{t, errors.New("address isn't ipv6")}
+			return true, Permerror, SyntaxError{t, ErrNotIPv6}
 		}
 		return ipnet.Contains(p.ip), result, nil
-
 	}
 
 	ip := net.ParseIP(t.value)
 	if ip.To4() != nil || ip.To16() == nil {
-		return true, Permerror, SyntaxError{t, errors.New("address isn't ipv6")}
+		return true, Permerror, SyntaxError{t, ErrNotIPv6}
 	}
 	return ip.Equal(p.ip), result, nil
-
 }
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
@@ -398,7 +394,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	domain := NormalizeFQDN(t.value)
 	p.fireDirective(t, domain)
 	if domain == "" {
-		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
+		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
 	theirResult, _, err := p.checkHost(p.ip, domain, p.sender)
 
@@ -437,8 +433,8 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 		return true, Temperror, err
 	case None, Permerror:
 		return true, Permerror, err
-	default: // this should actually never happen
-		return true, Permerror, SyntaxError{t, errors.New("unknown result")}
+	default: // this should actually never happen; but better error than panic
+		return true, Permerror, fmt.Errorf("internal error: unknown result %s for %s", theirResult, t)
 	}
 
 }
@@ -451,7 +447,7 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 		return true, Permerror, SyntaxError{t, err}
 	}
 	if resolvedDomain == "" {
-		return true, Permerror, SyntaxError{t, errors.New("empty domain")}
+		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
 
 	result, _ := matchingResult(t.qualifier)
@@ -501,7 +497,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 		return "", SyntaxError{t, err}
 	}
 	if domain == "" {
-		return "", SyntaxError{t, errors.New("empty domain")}
+		return "", SyntaxError{t, ErrEmptyDomain}
 	}
 
 	txts, err := p.resolver.LookupTXT(NormalizeFQDN(domain))

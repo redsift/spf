@@ -1,7 +1,6 @@
 package spf
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,10 +10,10 @@ import (
 const (
 	// delimiter is a constant rune other than any allowed delimiter.
 	// It indicates lack of allowed delimiters, hence no split in delimiter
-	delimiter rune = '*'
+	delimiter = '*'
 
 	// negative is a special value indicating there will be no split on macro.
-	negative int = -1
+	negative = -1
 )
 
 type macro struct {
@@ -81,7 +80,7 @@ func (m *macro) back() { m.pos = m.prev }
 
 // State functions
 
-func scanText(m *macro, p *parser) (stateFn, error) {
+func scanText(m *macro, _ *parser) (stateFn, error) {
 	for {
 
 		r, err := m.next()
@@ -103,7 +102,7 @@ func scanText(m *macro, p *parser) (stateFn, error) {
 	return nil, nil
 }
 
-func scanPercent(m *macro, p *parser) (stateFn, error) {
+func scanPercent(m *macro, _ *parser) (stateFn, error) {
 	r, err := m.next()
 	if err != nil {
 		return nil, err
@@ -212,7 +211,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	}
 
 	if err != nil {
-		return nil, errors.New("macro parsing error: " + err.Error())
+		return nil, fmt.Errorf("wrong macro syntax: %s", err.Error())
 	}
 
 	r, err = m.next()
@@ -221,7 +220,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		return nil, err
 	} else if r != '}' {
 		// macro not ended properly, handle error here
-		return nil, fmt.Errorf("unexpected char (%v), expected '}'", r)
+		return nil, fmt.Errorf("unexpected char '%v', expected '}'", r)
 	}
 
 	m.moveon()
