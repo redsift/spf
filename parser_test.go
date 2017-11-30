@@ -332,23 +332,25 @@ func TestParseA(t *testing.T) {
 		{&token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true},
 		{&token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true},
 		{&token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true},
+		{&token{tA, qPlus, "//32"}, Pass, true},
 	}
 
 	var match bool
 	var result Result
-	for i, testcase := range testcases {
-		match, result, _ = p.parseA(testcase.Input)
-		if testcase.Match != match {
-			t.Errorf("#%d Match mismatch, expected %v, got %v\n", i, testcase.Match, match)
-		}
-		if testcase.Result != result {
-			t.Errorf("#%d Result mismatch, expected %s, got %s\n", i, testcase.Result, result)
-		}
+	for _, testcase := range testcases {
+		t.Run(testcase.Input.value, func(t *testing.T) {
+			match, result, _ = p.parseA(testcase.Input)
+			if testcase.Match != match {
+				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
+			}
+			if testcase.Result != result {
+				t.Errorf("Want 'Result' %v, got %v", testcase.Result, result)
+			}
+		})
 	}
 }
 
 func TestParseAIpv6(t *testing.T) {
-
 	hosts := make(map[uint16][]string)
 
 	hosts[dns.TypeA] = []string{
@@ -392,13 +394,15 @@ func TestParseAIpv6(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
-		match, result, _ = p.parseA(testcase.Input)
-		if testcase.Match != match {
-			t.Error("Match mismatch")
-		}
-		if testcase.Result != result {
-			t.Error("Result mismatch")
-		}
+		t.Run(testcase.Input.value, func(t *testing.T) {
+			match, result, _ = p.parseA(testcase.Input)
+			if testcase.Match != match {
+				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
+			}
+			if testcase.Result != result {
+				t.Errorf("Want 'Result' %v, got %v", testcase.Result, result)
+			}
+		})
 	}
 }
 
@@ -523,6 +527,7 @@ func TestParseMX(t *testing.T) {
 		{&token{tMX, qPlus, "matching.com"}, Pass, true},
 		{&token{tMX, qPlus, "matching.com/24"}, Pass, true},
 		{&token{tMX, qPlus, "matching.com/24/64"}, Pass, true},
+		{&token{tMX, qPlus, "/24"}, Pass, true}, // domain is matching.com.
 		{&token{tMX, qPlus, ""}, Pass, true},
 		{&token{tMX, qMinus, ""}, Fail, true},
 		{&token{tMX, qPlus, "idontexist"}, Pass, false},
@@ -536,16 +541,18 @@ func TestParseMX(t *testing.T) {
 	var match bool
 	var result Result
 
-	for i, testcase := range testcases {
+	for _, testcase := range testcases {
 		for _, ip := range ips {
-			p.ip = ip
-			match, result, _ = p.parseMX(testcase.Input)
-			if testcase.Match != match {
-				t.Errorf("#%d Match mismatch, expected %v, got %v", i, testcase.Match, match)
-			}
-			if testcase.Result != result {
-				t.Errorf("#%d Result mismatch, expected %v, got %v", i, testcase.Result, result)
-			}
+			t.Run(testcase.Input.String()+"/"+ip.String(), func(t *testing.T) {
+				p.ip = ip
+				match, result, _ = p.parseMX(testcase.Input)
+				if testcase.Match != match {
+					t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
+				}
+				if testcase.Result != result {
+					t.Errorf("Want 'Result' %v, got %v", testcase.Result, result)
+				}
+			})
 		}
 	}
 }

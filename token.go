@@ -182,5 +182,8 @@ func (t *token) String() string {
 	if t.mechanism == tVersion {
 		d = "="
 	}
+	if t.value[0] == '/' {
+		d = ""
+	}
 	return fmt.Sprintf("%s%s%s%s", q, t.mechanism.String(), d, t.value)
 }

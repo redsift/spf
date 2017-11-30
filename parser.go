@@ -277,9 +277,15 @@ func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *to
 	return
 }
 
-func nonemptyString(s, def string) string {
+// For several mechanisms, the <domain-spec> is optional.  If it is not
+// provided, the <domain> from the check_host() arguments is used.
+func domainSpec(s, def string) string {
 	if s == "" {
 		return def
+	}
+
+	if s[0] == '/' { // special case for (mx|a) dual-cidr-length
+		return def + s
 	}
 	return s
 }
@@ -342,7 +348,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.domain))
+	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	host = NormalizeFQDN(host)
 	p.fireDirective(t, host)
 	if err != nil {
@@ -367,7 +373,7 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseMX(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(nonemptyString(t.value, p.domain))
+	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	host = NormalizeFQDN(host)
 	p.fireDirective(t, host)
 	if err != nil {

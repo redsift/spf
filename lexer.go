@@ -92,11 +92,13 @@ func (l *lexer) scanIdent() *token {
 	start := l.start
 	cursor := l.start
 	hasQualifier := false
+loop:
 	for cursor < l.pos {
 		ch, size := utf8.DecodeRuneInString(l.input[cursor:])
 		cursor += size
 
-		if isQualifier(ch) {
+		switch ch {
+		case '+', '-', '~', '?':
 			if hasQualifier {
 				t.qualifier = qErr // multiple qualifiers
 			} else {
@@ -105,19 +107,21 @@ func (l *lexer) scanIdent() *token {
 			}
 			l.start = cursor
 			continue
-		}
-		if isDelimiter(ch) { // add error handling
+		case '=', ':', '/':
 			if t.qualifier != qErr {
 				t.mechanism = tokenTypeFromString(l.input[l.start : cursor-size])
-				t.value = strings.TrimSpace(l.input[cursor:l.pos])
+				p := cursor
+				if ch == '/' { // special case for (mx|a) dual-cidr-length
+					p = cursor - size
+					ch = ':' // replace ch with expected delimiter for checkTokenSyntax
+				}
+				t.value = strings.TrimSpace(l.input[p:l.pos])
 			}
-
 			if t.value == "" || !checkTokenSyntax(t, ch) {
 				t.qualifier = qErr
 				t.mechanism = tErr
 			}
-
-			break
+			break loop
 		}
 	}
 
@@ -135,12 +139,6 @@ func (l *lexer) scanIdent() *token {
 
 // isWhitespace returns true if the rune is a space, tab, or newline.
 func isWhitespace(ch rune) bool { return ch == ' ' || ch == '\t' || ch == '\n' }
-
-// isDelimiter returns true if rune equals to ':' or '=', false otherwise
-func isDelimiter(ch rune) bool { return ch == ':' || ch == '=' }
-
-// isQualifier returns true if rune is a SPF delimiter (+,-,!,?)
-func isQualifier(ch rune) bool { return ch == '+' || ch == '-' || ch == '~' || ch == '?' }
 
 // isDigit returns true if rune is a numer (between '0' and '9'), false otherwise
 func isDigit(ch rune) bool { return ch >= '0' && ch <= '9' }

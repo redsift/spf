@@ -34,13 +34,10 @@ func TestLexerNext(t *testing.T) {
 }
 
 func TestLexerScanIdent(t *testing.T) {
-
-	type TestPair struct {
-		Record string
-		Token  *token
-	}
-
-	testpairs := []TestPair{
+	tests := []struct {
+		query string
+		want  *token
+	}{
 		{"v=spf1", &token{tVersion, qPlus, "spf1"}},
 		{"v=spf1 ", &token{tVersion, qPlus, "spf1"}},
 		{"a:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
@@ -62,17 +59,22 @@ func TestLexerScanIdent(t *testing.T) {
 		{"qowie", &token{tErr, qErr, "qowie"}},
 		{"~+all", &token{tErr, qErr, "~+all"}},
 		{"-~all", &token{tErr, qErr, "-~all"}},
+		{"mx", &token{tMX, qPlus, ""}},
+		{"mx/24", &token{tMX, qPlus, "/24"}},
+		{"~mx/24", &token{tMX, qTilde, "/24"}},
+		{"a", &token{tA, qPlus, ""}},
+		{"a/24", &token{tA, qPlus, "/24"}},
+		{"~a/24", &token{tA, qTilde, "/24"}},
 	}
 
-	for _, testpair := range testpairs {
-
-		l := &lexer{0, len(testpair.Record), len(testpair.Record) - 1,
-			len(testpair.Record), testpair.Record}
-
-		ltok := l.scanIdent()
-		if !reflect.DeepEqual(*testpair.Token, *ltok) {
-			t.Error("Expected token ", *testpair.Token, " got ", *ltok, " lexer: ", l)
-		}
+	for _, test := range tests {
+		t.Run(test.query, func(t *testing.T) {
+			l := &lexer{0, len(test.query), len(test.query) - 1, len(test.query), test.query}
+			got := l.scanIdent()
+			if !reflect.DeepEqual(test.want, got) {
+				t.Errorf("want %#v, got %#v", test.want, got)
+			}
+		})
 	}
 }
 
