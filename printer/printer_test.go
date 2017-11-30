@@ -44,16 +44,16 @@ func ExamplePrinter() {
 	//   SPF: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   v=spf1
 	//   mx:blocket.se (blocket.se.)
-	//     lookup(MX:blocket.se.) aspmx3.googlemail.com. -> 2404:6800:4003:c00::1a false <nil>
-	//     lookup(MX:blocket.se.) alt1.aspmx.l.google.com. -> 2a00:1450:4010:c05::1a false <nil>
-	//     lookup(MX:blocket.se.) alt1.aspmx.l.google.com. -> 64.233.161.26 false <nil>
-	//     lookup(MX:blocket.se.) aspmx3.googlemail.com. -> 74.125.200.26 false <nil>
-	//     lookup(MX:blocket.se.) alt2.aspmx.l.google.com. -> 2404:6800:4003:c00::1a false <nil>
-	//     lookup(MX:blocket.se.) aspmx2.googlemail.com. -> 2a00:1450:4010:c05::1b false <nil>
-	//     lookup(MX:blocket.se.) alt2.aspmx.l.google.com. -> 74.125.200.26 false <nil>
-	//     lookup(MX:blocket.se.) aspmx.l.google.com. -> 64.233.184.26 false <nil>
-	//     lookup(MX:blocket.se.) aspmx.l.google.com. -> 2a00:1450:400c:c0b::1b false <nil>
-	//     lookup(MX:blocket.se.) aspmx2.googlemail.com. -> 64.233.161.27 false <nil>
+	//     lookup(mx:blocket.se.) alt1.aspmx.l.google.com. -> (64.233.161.26/32 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx3.googlemail.com. -> (74.125.200.26/32 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) alt2.aspmx.l.google.com. -> (74.125.200.26/32 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) alt2.aspmx.l.google.com. -> (2404:6800:4003:c00::1a/128 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) alt1.aspmx.l.google.com. -> (2a00:1450:4010:c05::1a/128 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx2.googlemail.com. -> (64.233.161.27/32 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx3.googlemail.com. -> (2404:6800:4003:c00::1a/128 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx.l.google.com. -> (64.233.184.26/32 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx.l.google.com. -> (2a00:1450:400c:c0b::1b/128 has? 0.0.0.0) = false
+	//     lookup(mx:blocket.se.) aspmx2.googlemail.com. -> (2a00:1450:4010:c05::1b/128 has? 0.0.0.0) = false
 	//   include:spf.mailjet.com (spf.mailjet.com.)
 	//   CHECK_HOST("0.0.0.0", "spf.mailjet.com.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) spf.mailjet.com.

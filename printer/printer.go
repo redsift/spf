@@ -88,28 +88,20 @@ func (p *Printer) Exists(name string) (bool, error) {
 	return p.r.Exists(name)
 }
 
+func (p *Printer) MatchingIP(_, mechanism, _ string, fqdn string, ipn net.IPNet, host string, ip net.IP) {
+	p.Lock()
+	defer p.Unlock()
+	if p.done {
+		return
+	}
+	n, _ := ipn.Mask.Size()
+	fmt.Fprintf(p.w, "%s  lookup(%s:%s) %s -> (%s/%d has? %s) = %t\n", strings.Repeat("  ", p.c), mechanism, fqdn, host, ipn.IP, n, ip, ipn.Contains(ip))
+}
+
 func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, error) {
-	return p.r.MatchIP(name, func(ip net.IP, fqdn string) (bool, error) {
-		p.Lock()
-		defer p.Unlock()
-		if p.done {
-			return false, nil
-		}
-		r, e := matcher(ip, fqdn)
-		fmt.Fprintf(p.w, "%s  lookup(A,AAAA:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
-		return r, e
-	})
+	return p.r.MatchIP(name, matcher)
 }
 
 func (p *Printer) MatchMX(name string, matcher spf.IPMatcherFunc) (bool, error) {
-	return p.r.MatchMX(name, func(ip net.IP, fqdn string) (bool, error) {
-		p.Lock()
-		defer p.Unlock()
-		if p.done {
-			return false, nil
-		}
-		r, e := matcher(ip, fqdn)
-		fmt.Fprintf(p.w, "%s  lookup(MX:%s) %s -> %s %t %v\n", strings.Repeat("  ", p.c), name, fqdn, ip, r, e)
-		return r, e
-	})
+	return p.r.MatchMX(name, matcher)
 }

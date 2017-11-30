@@ -218,11 +218,19 @@ func (p *parser) fireSPFRecord(s string) {
 	}
 	p.listener.SPFRecord(s)
 }
+
 func (p *parser) fireDirective(t *token, effectiveValue string) {
 	if p.listener == nil {
 		return
 	}
 	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
+}
+
+func (p *parser) fireMatchingIP(t *token, fqdn string, ipn net.IPNet, host string, ip net.IP) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.MatchingIP(t.qualifier.String(), t.mechanism.String(), t.value, fqdn, ipn, host, ip)
 }
 
 func (p *parser) fireUnusedDirective(t *token) {
@@ -348,16 +356,16 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
-	host = NormalizeFQDN(host)
-	p.fireDirective(t, host)
+	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	fqdn = NormalizeFQDN(fqdn)
+	p.fireDirective(t, fqdn)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, err := p.resolver.MatchIP(host, func(ip net.IP, _ string) (bool, error) {
+	found, err := p.resolver.MatchIP(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -367,21 +375,22 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 		case net.IPv6len:
 			n.Mask = ip6Mask
 		}
+		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
 	return found, result, err
 }
 
 func (p *parser) parseMX(t *token) (bool, Result, error) {
-	host, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
-	host = NormalizeFQDN(host)
-	p.fireDirective(t, host)
+	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	fqdn = NormalizeFQDN(fqdn)
+	p.fireDirective(t, fqdn)
 	if err != nil {
 		return true, Permerror, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
-	found, err := p.resolver.MatchMX(host, func(ip net.IP, _ string) (bool, error) {
+	found, err := p.resolver.MatchMX(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -391,6 +400,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 		case net.IPv6len:
 			n.Mask = ip6Mask
 		}
+		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
 	return found, result, err
