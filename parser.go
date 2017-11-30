@@ -76,8 +76,15 @@ func newParser(opts ...Option) *parser {
 // The function returns result of verification, explanations as result of "exp=",
 // and error as the reason for the encountered problem.
 func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, err error) {
+	var u unused
 	p.fireCheckHost(ip, domain, sender)
-	defer func() { p.fireCheckHostResult(r, expl, err) }()
+	defer func() {
+		p.fireCheckHostResult(r, expl, err)
+		for _, t := range u.mechanisms {
+			p.fireUnusedDirective(t)
+		}
+		p.fireUnusedDirective(u.redirect)
+	}()
 	/*
 	* As per RFC 7208 Section 4.3:
 	* If the <domain> is malformed (e.g., label longer than 63
@@ -112,7 +119,8 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", ErrSPFNotFound
 	}
 
-	return newParser(p.options...).with(spf, sender, domain, ip).check()
+	r, expl, err, u = newParser(p.options...).with(spf, sender, domain, ip).check()
+	return
 }
 
 func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
@@ -123,28 +131,39 @@ func (p *parser) with(query, sender, domain string, ip net.IP) *parser {
 	return p
 }
 
+type unused struct {
+	mechanisms []*token
+	redirect   *token
+}
+
 // check aggregates all steps required for SPF evaluation.
 // After lexing and tokenizing step it sorts tokens (and returns Permerror if
 // there is any syntax error) and starts evaluating
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
-func (p *parser) check() (Result, string, error) {
+func (p *parser) check() (Result, string, error, unused) {
 	p.fireSPFRecord(p.query)
 	tokens := lex(p.query)
 
+	var (
+		result  = Neutral
+		matches bool
+		token   *token
+		i       int
+	)
+
 	mechanisms, redirect, explanation, err := sortTokens(tokens)
 	if err != nil {
-		return Permerror, "", err
+		return Permerror, "", err, unused{mechanisms, redirect}
 	}
 
-	var result = Neutral
-	var matches bool
-
-	for _, token := range mechanisms {
+	var all bool
+	for i, token = range mechanisms {
 		switch token.mechanism {
 		case tVersion:
 			matches, result, err = p.parseVersion(token)
 		case tAll:
+			all = true
 			matches, result, err = p.parseAll(token)
 		case tA:
 			matches, result, err = p.parseA(token)
@@ -168,14 +187,16 @@ func (p *parser) check() (Result, string, error) {
 				s, err = p.handleExplanation(explanation)
 			}
 			p.fireMatch(token, result, s, err)
-			return result, s, err
+			return result, s, err, unused{mechanisms[i+1:], redirect}
 		}
 		p.fireNonMatch(token, result, err)
 	}
 
-	result, err = p.handleRedirect(redirect)
+	if !all {
+		result, err = p.handleRedirect(redirect)
+	}
 
-	return result, "", err
+	return result, "", err, unused{}
 }
 
 func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
@@ -203,6 +224,13 @@ func (p *parser) fireDirective(t *token, effectiveValue string) {
 		return
 	}
 	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
+}
+
+func (p *parser) fireUnusedDirective(t *token) {
+	if p.listener == nil || t == nil {
+		return
+	}
+	p.listener.Directive(true, t.qualifier.String(), t.mechanism.String(), t.value, "")
 }
 
 func (p *parser) fireNonMatch(t *token, r Result, e error) {
@@ -248,10 +276,6 @@ func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *to
 				explanation = token
 			}
 		}
-	}
-
-	if all {
-		redirect = nil
 	}
 
 	return

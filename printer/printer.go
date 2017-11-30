@@ -36,17 +36,22 @@ func (p *Printer) CheckHostResult(r spf.Result, explanation string, err error) {
 	fmt.Fprintf(p.w, "%s= %s, %q, %v\n", strings.Repeat("  ", p.c), r, explanation, err)
 }
 
-func (p *Printer) Directive(_ bool, qualifier, mechanism, value, effectiveValue string) {
+func (p *Printer) Directive(unused bool, qualifier, mechanism, value, effectiveValue string) {
 	fmt.Fprintf(p.w, "%s", strings.Repeat("  ", p.c))
 	if qualifier == "+" {
 		qualifier = ""
+	}
+	if unused {
+		fmt.Fprint(p.w, "unused ")
 	}
 	fmt.Fprintf(p.w, "%s%s", qualifier, mechanism)
 	delimiter := ":"
 	if mechanism == "v" {
 		delimiter = "="
 	}
-	fmt.Fprintf(p.w, "%s%s", delimiter, value)
+	if value != "" {
+		fmt.Fprintf(p.w, "%s%s", delimiter, value)
+	}
 	if effectiveValue != "" {
 		fmt.Fprintf(p.w, " (%s)", effectiveValue)
 	}
@@ -59,10 +64,6 @@ func (p *Printer) NonMatch(qualifier, mechanism, value string, result spf.Result
 
 func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, explanation string, err error) {
 	//fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
-}
-
-func (p *Printer) Redirect(_ bool, domain string) {
-	fmt.Fprintf(p.w, "%s REDIRECT: %s\n", strings.Repeat("  ", p.c), domain)
 }
 
 func (p *Printer) LookupTXT(name string) ([]string, error) {

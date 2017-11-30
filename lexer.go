@@ -90,11 +90,13 @@ func (l *lexer) scanWhitespaces() {
 func (l *lexer) scanIdent() *token {
 	t := &token{tErr, qPlus, ""}
 	cursor := l.start
+	hasQualifier := false
 	for cursor < l.pos {
 		ch, size := utf8.DecodeRuneInString(l.input[cursor:])
 		cursor += size
 
-		if isQualifier(ch) {
+		if isQualifier(ch) && !hasQualifier {
+			hasQualifier = true
 			t.qualifier, _ = qualifiers[ch]
 			l.start = cursor
 			continue

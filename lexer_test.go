@@ -52,7 +52,6 @@ func TestLexerScanIdent(t *testing.T) {
 		{"^ip6:2001::4", &token{tErr, qErr, ""}},
 		{"-all", &token{tAll, qMinus, ""}},
 		{"-all ", &token{tAll, qMinus, ""}},
-		{"~all", &token{tAll, qTilde, ""}},
 		{"-mx:localhost", &token{tMX, qMinus, "localhost"}},
 		{"mx", &token{tMX, qPlus, ""}},
 		{"a:", &token{tErr, qErr, ""}},
@@ -61,6 +60,8 @@ func TestLexerScanIdent(t *testing.T) {
 		{"-:localhost", &token{tErr, qErr, ""}},
 		{"", &token{tErr, qErr, ""}},
 		{"qowie", &token{tErr, qErr, ""}},
+		{"~+all", &token{tErr, qErr, ""}},
+		{"-~all", &token{tErr, qErr, ""}},
 	}
 
 	for _, testpair := range testpairs {

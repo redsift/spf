@@ -172,7 +172,7 @@ func (t *token) String() string {
 		d = "="
 	}
 	if t.value == "" {
-		return fmt.Sprintf("%s%s%s", q, d, t.mechanism.String())
+		return fmt.Sprintf("%s%s", q, t.mechanism.String())
 	}
-	return fmt.Sprintf("%s%s%s%v", q, d, t.mechanism.String(), t.value)
+	return fmt.Sprintf("%s%s%s%s", q, t.mechanism.String(), d, t.value)
 }

@@ -139,7 +139,7 @@ func TestTokensSoriting(t *testing.T) {
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			nil,
+			&token{tRedirect, qPlus, "_spf.example.com"},
 			nil,
 		},
 		{
@@ -155,7 +155,7 @@ func TestTokensSoriting(t *testing.T) {
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			nil,
+			&token{tRedirect, qPlus, "_spf.example.com"},
 			&token{tExp, qPlus, "You are wrong"},
 		},
 	}
@@ -930,7 +930,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1042,7 +1042,7 @@ func TestHandleRedirect(t *testing.T) {
 
 	for _, testcase := range ParseTestCases {
 		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", testcase.IP)
-		result, _, _ := p.check()
+		result, _, _, _ := p.check()
 		if result != testcase.Result {
 			t.Errorf("%q Expected %v, got %v", testcase.Query, testcase.Result, result)
 		}
@@ -1085,7 +1085,7 @@ func TestHandleExplanation(t *testing.T) {
 
 	for _, testcase := range expTestCases {
 		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", ip)
-		_, exp, err := p.check()
+		_, exp, err, _ := p.check()
 		if err != nil {
 			t.Errorf("%q unexpected error while parsing: %s", testcase.Query, err)
 		}
