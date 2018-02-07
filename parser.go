@@ -92,7 +92,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	* domain name, [...], check_host() immediately returns None
 	 */
 	if !isDomainName(domain) {
-		return None, "", ErrInvalidDomain
+		return None, "", newInvalidDomainError(domain)
 	}
 
 	txts, err := p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
@@ -567,7 +567,7 @@ func splitDomainDualCIDR(domain string) (string, net.IPMask, net.IPMask, error) 
 	}
 
 	if !isDomainName(domain) {
-		return "", nil, nil, ErrInvalidDomain
+		return "", nil, nil, newInvalidDomainError(domain)
 	}
 	ip4Mask, err = parseCIDRMask(ip4Len, 8*net.IPv4len)
 	if err != nil {

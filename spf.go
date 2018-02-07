@@ -11,7 +11,6 @@ import (
 var (
 	ErrDNSTemperror      = errors.New("temporary DNS error")
 	ErrDNSPermerror      = errors.New("permanent DNS error")
-	ErrInvalidDomain     = errors.New("invalid domain name")
 	ErrDNSLimitExceeded  = errors.New("limit exceeded")
 	ErrSPFNotFound       = errors.New("SPF record not found")
 	ErrInvalidCIDRLength = errors.New("invalid CIDR length")
@@ -23,6 +22,29 @@ var (
 	ErrNotIPv4           = errors.New("address isn't ipv4")
 	ErrNotIPv6           = errors.New("address isn't ipv6")
 )
+
+// DomainError represents a domain check error
+type DomainError struct {
+	Err    string // description of the error
+	Domain string // domain checked
+}
+
+func (e *DomainError) Error() string {
+	if e == nil {
+		return "<nil>"
+	}
+	if e.Domain == "" {
+		return e.Err
+	}
+	return e.Err + ": " + e.Domain
+}
+
+func newInvalidDomainError(domain string) error {
+	return &DomainError{
+		Err:    "invalid domain name",
+		Domain: domain,
+	}
+}
 
 // IPMatcherFunc returns true if ip matches to implemented rules.
 // If IPMatcherFunc returns any non nil error, the Resolver must stop
