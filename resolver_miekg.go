@@ -245,9 +245,9 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 			}
 		}
 		if r.parallelism < 2 { // only 2 types of lookup defined
-			go lookup(qType)
-		} else {
 			lookup(qType)
+		} else {
+			go lookup(qType)
 		}
 	}
 
