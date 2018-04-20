@@ -176,6 +176,8 @@ func (p *parser) check() (Result, string, error, unused) {
 			matches, result, err = p.parseInclude(token)
 		case tExists:
 			matches, result, err = p.parseExists(token)
+		case tPTR:
+			_, _, _ = p.parsePtr(token)
 		default:
 			p.fireDirective(token, "")
 		}
@@ -477,6 +479,11 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 	default:
 		return false, Temperror, err // was true 8-|
 	}
+}
+
+func (p *parser) parsePtr(t *token) (bool, Result, error) {
+	p.fireDirective(t, domainSpec(t.value, p.domain))
+	return false, internalError, nil
 }
 
 func (p *parser) handleRedirect(t *token) (Result, error) {
