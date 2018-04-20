@@ -79,6 +79,12 @@ type Resolver interface {
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF
 type Option func(*parser)
 
+func IgnoreMatches() Option {
+	return func(p *parser) {
+		p.ignoreMatches = true
+	}
+}
+
 func WithResolver(r Resolver) Option {
 	return func(p *parser) {
 		p.resolver = r

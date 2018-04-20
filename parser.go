@@ -45,13 +45,14 @@ func (e SyntaxError) TokenString() string {
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	sender   string
-	domain   string
-	ip       net.IP
-	query    string
-	resolver Resolver
-	listener Listener
-	options  []Option
+	sender        string
+	domain        string
+	ip            net.IP
+	query         string
+	resolver      Resolver
+	listener      Listener
+	ignoreMatches bool
+	options       []Option
 }
 
 // newParser creates new Parser objects and returns its reference.
@@ -182,7 +183,7 @@ func (p *parser) check() (Result, string, error, unused) {
 			p.fireDirective(token, "")
 		}
 
-		if matches {
+		if !p.ignoreMatches && matches {
 			var s string
 			if result == Fail && explanation != nil {
 				s, err = p.handleExplanation(explanation)
@@ -197,6 +198,9 @@ func (p *parser) check() (Result, string, error, unused) {
 		result, err = p.handleRedirect(redirect)
 	}
 
+	if p.ignoreMatches {
+		result = internalError
+	}
 	return result, "", err, unused{}
 }
 
