@@ -86,6 +86,8 @@ func (r *miekgDNSResolver) cacheResponse(res *dns.Msg) {
 		return
 	}
 	if len(res.Answer) == 0 {
+		// TODO(dmotylev) get TTL from SOA and limit it between 60s and 3600s
+		r.cache.SetWithExpire(res.Question[0], res, 60*time.Second)
 		return
 	}
 	var ttl uint32 = maxUint32

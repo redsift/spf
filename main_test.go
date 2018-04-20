@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		_ = s.Shutdown()
 	}()
 
-	testResolverCache = gcache.New(10).Simple().Build()
+	testResolverCache = gcache.New(100).Simple().Build()
 
 	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(),
 		MiekgDNSCache(testResolverCache),

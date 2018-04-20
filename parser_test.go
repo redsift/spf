@@ -794,6 +794,8 @@ type parseTestCase struct {
 // TestParse tests whole Parser.Parse() method
 func TestParse(t *testing.T) {
 
+	testResolverCache.Purge()
+
 	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.com. 0 in MX 5 matching.com.",
