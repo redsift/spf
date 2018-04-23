@@ -869,14 +869,14 @@ func TestParse(t *testing.T) {
 
 	dns.HandleFunc("loop2.matching.net.", zone(map[uint16][]string{
 		dns.TypeTXT: {
-			`loop2.matching.net. 0 IN TXT "v=spf1 redirect:loop2.matching.com -all"`,
+			`loop2.matching.net. 0 IN TXT "v=spf1 redirect=loop2.matching.com"`,
 		},
 	}))
 	defer dns.HandleRemove("loop2.matching.net.")
 
 	dns.HandleFunc("loop2.matching.com.", zone(map[uint16][]string{
 		dns.TypeTXT: {
-			`loop2.matching.com. 0 IN TXT "v=spf1 redirect:loop2.matching.net -all"`,
+			`loop2.matching.com. 0 IN TXT "v=spf1 redirect=loop2.matching.net"`,
 		},
 	}))
 	defer dns.HandleRemove("loop2.matching.com.")
@@ -894,7 +894,7 @@ func TestParse(t *testing.T) {
 		{"v=spf1 +ip4:128.14.15.16 -all", net.IP{128, 14, 15, 16}, Pass},
 		{"v=spf1 ~ip6:2001:56::2 -all", net.ParseIP("2001:56::2"), Softfail},
 		// Test ensures that once no term was matched and there is no
-		// redirect: mechanism, we should return Neutral result.
+		// redirect mechanism, we should return Neutral result.
 		{"v=spf1 -ip4:8.8.8.8", net.IP{9, 9, 9, 9}, Neutral},
 		// Test will return SPFResult Fail as 172.20.20.1 does not result
 		// positively for domain _spf.matching.net
@@ -929,7 +929,7 @@ func TestParse(t *testing.T) {
 		// evaluation (the "exp" modifier only causes a lookup
 		// https://tools.ietf.org/html/rfc7208#section-2.6
 		{"v=spf1 include:loop.matching.com -all", net.IP{10, 0, 0, 1}, Permerror},
-		{"v=spf1 redirect:loop2.matching.com -all", net.IP{10, 0, 0, 1}, Permerror},
+		{"v=spf1 redirect=loop2.matching.com", net.IP{10, 0, 0, 1}, Permerror},
 	}
 
 	for _, testcase := range parseTestCases {
@@ -954,6 +954,76 @@ func TestParse(t *testing.T) {
 			}
 			continue
 		}
+	}
+}
+
+func TestCheckHost_RecursionLoop(t *testing.T) {
+	testResolverCache.Purge()
+
+	dns.HandleFunc("loop.matching.net.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`loop.matching.net. 0 IN TXT "v=spf1 include:loop1.matching.net -all"`,
+		},
+	}))
+	defer dns.HandleRemove("loop.matching.net.")
+
+	dns.HandleFunc("loop1.matching.net.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`loop1.matching.net. 0 IN TXT "v=spf1 include:loop2.matching.net -all"`,
+		},
+	}))
+	defer dns.HandleRemove("loop1.matching.net.")
+
+	dns.HandleFunc("loop2.matching.net.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`loop2.matching.net. 0 IN TXT "v=spf1 include:loop.matching.net -all"`,
+		},
+	}))
+	defer dns.HandleRemove("loop2.matching.net.")
+
+	tests := []struct {
+		query  string
+		ip     net.IP
+		result Result
+		err    string
+	}{
+		{"v=spf1 include:loop.matching.net -all", net.IP{10, 0, 0, 1}, Permerror,
+			"error checking 'include:loop.matching.net': " +
+				"error checking 'include:loop1.matching.net': " +
+				"error checking 'include:loop2.matching.net': " +
+				"error checking 'include:loop.matching.net': infinite recursion detected"},
+		{"v=spf1 redirect=loop.matching.net", net.IP{10, 0, 0, 1}, Permerror,
+			"error checking 'include:loop1.matching.net': " +
+				"error checking 'include:loop2.matching.net': " +
+				"error checking 'include:loop.matching.net': infinite recursion detected"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.query, func(t *testing.T) {
+			type R struct {
+				r Result
+				e error
+			}
+			done := make(chan R)
+			go func() {
+				result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
+				done <- R{result, err}
+			}()
+			select {
+			case <-time.After(5 * time.Second):
+				t.Errorf("%q failed due to timeout", test.query)
+			case r := <-done:
+				if r.r != Permerror && r.r != Temperror && r.e != nil {
+					t.Errorf("%q Unexpected error while parsing: %s", test.query, r.e)
+				}
+				if r.r != test.result {
+					t.Errorf("%q Expected %v, got %v", test.query, test.result, r.r)
+				}
+				if r.e.Error() != test.err {
+					t.Errorf("%q Expected %v, got %v", test.query, test.err, r.e)
+				}
+			}
+		})
 	}
 }
 

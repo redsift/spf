@@ -53,16 +53,25 @@ type parser struct {
 	listener      Listener
 	ignoreMatches bool
 	options       []Option
+	visited       *stringsStack
 }
 
 // newParser creates new Parser objects and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
 func newParser(opts ...Option) *parser {
+	return newParserWithVisited(newStringsStack(), opts...)
+}
+
+// newParserWithVisited creates new Parser objects with prepopulated map of visited domains and returns its reference.
+// It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
+// during initial DNS lookup.
+func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
 		//mechanisms: make([]*token, 0, 10),
 		resolver: NewLimitedResolver(&DNSResolver{}, 10, 10),
 		options:  opts,
+		visited:  visited,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -96,6 +105,10 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", newInvalidDomainError(domain)
 	}
 
+	if p.visited.has(domain) {
+		return Permerror, "", ErrLoopDetected
+	}
+
 	txts, err := p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
 	switch err {
 	case nil:
@@ -119,7 +132,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", ErrSPFNotFound
 	}
 
-	r, expl, err, u = newParser(p.options...).with(spf, sender, domain, ip).check()
+	r, expl, err, u = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -142,6 +155,9 @@ type unused struct {
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
 func (p *parser) check() (Result, string, error, unused) {
+	p.visited.push(p.domain)
+	defer p.visited.pop()
+
 	p.fireSPFRecord(p.query)
 	tokens := lex(p.query)
 

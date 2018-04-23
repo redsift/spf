@@ -21,6 +21,7 @@ var (
 	ErrEmptyDomain       = errors.New("empty domain")
 	ErrNotIPv4           = errors.New("address isn't ipv4")
 	ErrNotIPv6           = errors.New("address isn't ipv6")
+	ErrLoopDetected      = errors.New("infinite recursion detected")
 )
 
 // DomainError represents a domain check error
