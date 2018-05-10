@@ -22,6 +22,7 @@ var (
 	ErrNotIPv4           = errors.New("address isn't ipv4")
 	ErrNotIPv6           = errors.New("address isn't ipv6")
 	ErrLoopDetected      = errors.New("infinite recursion detected")
+	ErrUnreliableResult  = errors.New("result is unreliable with IgnoreMatches option enabled")
 )
 
 // DomainError represents a domain check error
@@ -132,6 +133,9 @@ const (
 	// This signals an error condition that definitely requires
 	// DNS operator intervention to be resolved.
 	Permerror
+
+	// unreliableResult replaces any other results when IgnoreMatches option enabled
+	unreliableResult
 
 	internalError
 )

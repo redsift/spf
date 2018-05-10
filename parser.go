@@ -215,7 +215,7 @@ func (p *parser) check() (Result, string, error, unused) {
 	}
 
 	if p.ignoreMatches {
-		result = internalError
+		return unreliableResult, "", ErrUnreliableResult, unused{}
 	}
 	return result, "", err, unused{}
 }
@@ -471,6 +471,8 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 		return true, Temperror, err
 	case None, Permerror:
 		return true, Permerror, err
+	case unreliableResult: // ignoreMatches enabled
+		return true, Permerror, ErrUnreliableResult
 	default: // this should actually never happen; but better error than panic
 		return true, Permerror, fmt.Errorf("internal error: unknown result %s for %s", theirResult, t)
 	}
