@@ -3,6 +3,7 @@ package spf
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type tokenType int
@@ -86,7 +87,7 @@ func (tok tokenType) String() string {
 }
 
 func tokenTypeFromString(s string) tokenType {
-	switch s {
+	switch strings.ToLower(s) {
 	case "v":
 		return tVersion
 	case "all":

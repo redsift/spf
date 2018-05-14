@@ -886,7 +886,7 @@ func TestParse(t *testing.T) {
 		{"v=spf1 mx -all", net.IP{172, 20, 20, 20}, Pass},
 		{"v=spf1 ?mx -all", net.IP{172, 20, 20, 20}, Neutral},
 		{"v=spf1 ~mx -all", net.IP{172, 20, 20, 20}, Softfail},
-		{"v=spf1 a -mx -all", net.IP{172, 18, 0, 2}, Pass},
+		{"v=spf1 A -mx -all", net.IP{172, 18, 0, 2}, Pass},
 		{"v=spf1 -mx a -all", net.IP{172, 18, 0, 2}, Fail},
 		{"v=spf1 +mx:matching.net -a -all", net.IP{173, 18, 0, 2}, Pass},
 		{"v=spf1 +mx:matching.net -a -all", net.IP{172, 17, 0, 2}, Fail},

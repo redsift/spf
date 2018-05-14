@@ -40,8 +40,10 @@ func TestLexerScanIdent(t *testing.T) {
 	}{
 		{"v=spf1", &token{tVersion, qPlus, "spf1"}},
 		{"v=spf1 ", &token{tVersion, qPlus, "spf1"}},
+		{"A:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
 		{"a:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
 		{"a", &token{tA, qPlus, ""}},
+		{"A", &token{tA, qPlus, ""}},
 		{"a:127.0.0.1 ", &token{tA, qPlus, "127.0.0.1"}},
 		{"?a:127.0.0.1   ", &token{tA, qQuestionMark, "127.0.0.1"}},
 		{"?ip6:2001::43   ", &token{tIP6, qQuestionMark, "2001::43"}},
