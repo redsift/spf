@@ -379,6 +379,12 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 
 func (p *parser) parseA(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	if err == nil {
+		fqdn, err = parseMacro(p, fqdn)
+	}
+	if err == nil && !isDomainName(fqdn) {
+		err = newInvalidDomainError(fqdn)
+	}
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
@@ -405,6 +411,12 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 
 func (p *parser) parseMX(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	if err == nil {
+		fqdn, err = parseMacro(p, fqdn)
+	}
+	if err == nil && !isDomainName(fqdn) {
+		err = newInvalidDomainError(fqdn)
+	}
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
@@ -429,8 +441,12 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain := NormalizeFQDN(t.value)
+	domain, err := parseMacro(p, t.value)
+	domain = NormalizeFQDN(domain)
 	p.fireDirective(t, domain)
+	if err != nil {
+		return true, Permerror, SyntaxError{t, err}
+	}
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
@@ -518,9 +534,13 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		result Result
 	)
 
-	redirectDomain := NormalizeFQDN(t.value)
+	domain, err := parseMacro(p, t.value)
+	redirectDomain := NormalizeFQDN(domain)
 
 	p.fireDirective(t, redirectDomain)
+	if err != nil {
+		return Permerror, SyntaxError{t, err}
+	}
 
 	if result, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
 		//TODO(zaccone): confirm result value
@@ -595,9 +615,6 @@ func splitDomainDualCIDR(domain string) (string, net.IPMask, net.IPMask, error) 
 		ip6Len = parts[2]
 	}
 
-	if !isDomainName(domain) {
-		return "", nil, nil, newInvalidDomainError(domain)
-	}
 	ip4Mask, err = parseCIDRMask(ip4Len, 8*net.IPv4len)
 	if err != nil {
 		return "", nil, nil, err

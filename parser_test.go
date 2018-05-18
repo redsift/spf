@@ -881,6 +881,19 @@ func TestParse(t *testing.T) {
 	}))
 	defer dns.HandleRemove("loop2.matching.com.")
 
+	dns.HandleFunc("10.0.0.1.matching.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`10.0.0.1.matching.com. 0 IN TXT "v=spf1 +all"`,
+		},
+		dns.TypeA: {
+			"10.0.0.1.matching.com. 0 IN A 10.0.0.1",
+		},
+		dns.TypeMX: {
+			"10.0.0.1.matching.com. 0 in MX 5 10.0.0.1.matching.com.",
+		},
+	}))
+	defer dns.HandleRemove("10.0.0.1.matching.com.")
+
 	parseTestCases := []parseTestCase{
 		{"v=spf1 -all", net.IP{127, 0, 0, 1}, Fail},
 		{"v=spf1 mx -all", net.IP{172, 20, 20, 20}, Pass},
@@ -930,6 +943,10 @@ func TestParse(t *testing.T) {
 		// https://tools.ietf.org/html/rfc7208#section-2.6
 		{"v=spf1 include:loop.matching.com -all", net.IP{10, 0, 0, 1}, Permerror},
 		{"v=spf1 redirect=loop2.matching.com", net.IP{10, 0, 0, 1}, Permerror},
+		{"v=spf1 include:%{i}.matching.com -all", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 redirect=%{i}.matching.com", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 a:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 mx:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
 	}
 
 	for _, testcase := range parseTestCases {

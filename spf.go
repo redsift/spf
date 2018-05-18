@@ -220,16 +220,22 @@ func filterSPF(txt []string) (string, error) {
 	return spf, nil
 }
 
-// isDomainName is a 1:1 copy of implementation from
-// original golang codebase:
-// https://github.com/golang/go/blob/master/src/net/dnsclient.go#L116
-// It validates s string for conditions specified in RFC 1035 and RFC 3696
+// isDomainName checks if a string is a presentation-format domain name
+// (currently restricted to hostname-compatible "preferred name" LDH labels and
+// SRV-like "underscore labels"; see golang.org/issue/12421).
+//
+// Copied from https://github.com/golang/go/blob/8a16c71067ca2cfd09281a82ee150a408095f0bc/src/net/dnsclient.go#L60
 func isDomainName(s string) bool {
 	// See RFC 1035, RFC 3696.
-	if len(s) == 0 {
-		return false
-	}
-	if len(s) > 255 {
+	// Presentation format has dots before every label except the first, and the
+	// terminal empty label is optional here because we assume fully-qualified
+	// (absolute) input. We must therefore reserve space for the first and last
+	// labels' length octets in wire format, where they are necessary and the
+	// maximum total length is 255.
+	// So our _effective_ maximum is 253, but 254 is not rejected if the last
+	// character is a dot.
+	l := len(s)
+	if l == 0 || l > 254 || l == 254 && s[l-1] != '.' {
 		return false
 	}
 
