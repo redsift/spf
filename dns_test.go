@@ -1,7 +1,12 @@
 package spf
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
+/*
 type spfTestpair struct {
 	query    []string
 	expected bool
@@ -14,7 +19,6 @@ type SPFTestCase struct {
 
 //TestSPFLookup ensures a TXT records are properly queried and reurned to the called. Function should also work with
 // multiple TXT records for a given host.
-/*
 func TestSPFLookup(t *testing.T) {
 	testcases := []SPFTestCase{
 		SPFTestCase{"multi.spf.matching.com", []string{"v=spf1 ip6:2001:db8:a0b:12f0::1 -all", "v=spf1 mx -all"}},
@@ -59,61 +63,42 @@ func TestHandleNoSuchHostDNSError(t *testing.T) {
 */
 
 // DNS domain name validation.
-// This source code is copied from:
-//https://github.com/golang/go/blob/master/src/net/dnsclient_test.go
-
-type dnsNameTest struct {
-	name   string
-	result bool
-}
-
-var dnsNameTests = []dnsNameTest{
-	// RFC 2181, section 11.
-	{"_xmpp-server._tcp.google.com", true},
-	{"foo.com", true},
-	{"1foo.com", true},
-	{"26.0.0.73.com", true},
-	{"fo-o.com", true},
-	{"fo1o.com", true},
-	{"foo1.com", true},
-	{"a.b..com", false},
-	{"a.b-.com", false},
-	{"a.b.com-", false},
-	{"a.b..", false},
-	{"b.com.", true},
-}
-
-func emitDNSNameTest(ch chan<- dnsNameTest) {
-	defer close(ch)
-	var char59, char63, char64 string
-	for i := 0; i < 59; i++ {
-		char59 += "a"
-	}
-	char63 = char59 + "aaaa"
-	char64 = char63 + "a"
-
-	for _, tc := range dnsNameTests {
-		ch <- tc
-	}
-
-	ch <- dnsNameTest{char63 + ".com", true}
-	ch <- dnsNameTest{char64 + ".com", false}
-	// 255 char name is fine:
-	ch <- dnsNameTest{char59 + "." + char63 + "." + char63 + "." +
-		char63 + ".com",
-		true}
-	// 256 char name is bad:
-	ch <- dnsNameTest{char59 + "a." + char63 + "." + char63 + "." +
-		char63 + ".com",
-		false}
-}
-
 func TestDNSName(t *testing.T) {
-	ch := make(chan dnsNameTest)
-	go emitDNSNameTest(ch)
-	for tc := range ch {
-		if isDomainName(tc.name) != tc.result {
-			t.Errorf("IsDomainName(%q) = %v; want %v", tc.name, !tc.result, tc.result)
+	z := func(n int) string { return strings.Repeat("z", n) }
+
+	tests := []struct {
+		domain string
+		want   bool
+	}{
+		// RFC 2181, section 11.
+		{"_xmpp-server._tcp.google.com", true},
+		{"foo.com", true},
+		{"1foo.com", true},
+		{"26.0.0.73.com", true},
+		{"fo-o.com", true},
+		{"fo1o.com", true},
+		{"foo1.com", true},
+		{"a.b..com", false},
+		{"a.b-.com", false},
+		{"a.b.com-", false},
+		{"a.b..", false},
+		{"b.com.", true},
+		{strings.Join([]string{"63", z(63), "com"}, "."), true},
+		{strings.Join([]string{"64", z(64), "com"}, "."), false},
+		{strings.Join([]string{"253", z(53), z(63), z(63), z(63), "com"}, "."), true},
+		{strings.Join([]string{"254", z(54), z(63), z(63), z(63), "com"}, "."), false},
+		{strings.Join([]string{"254dot", z(50), z(63), z(63), z(63), "com."}, "."), true},
+	}
+
+	const skipAllBut = -1
+	for no, test := range tests {
+		if skipAllBut != -1 && skipAllBut != no {
+			continue
 		}
+		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
+			if isDomainName(test.domain) != test.want {
+				t.Errorf("isDomainName(%q) = %v; want %v", test.domain, !test.want, test.want)
+			}
+		})
 	}
 }
