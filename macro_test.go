@@ -4,8 +4,6 @@ import (
 	"net"
 	"testing"
 
-	"time"
-
 	"fmt"
 
 	"github.com/miekg/dns"
@@ -178,10 +176,10 @@ func TestParsingErrors(t *testing.T) {
 }
 
 func TestMacro_Domains(t *testing.T) {
-	//	For recursive evaluations, the domain portion of <sender> might not
-	//be the same as the <domain> argument when check_host() is initially
-	//evaluated.  In most other cases it will be the same (see Section 5.2
-	//below).
+	// For recursive evaluations, the domain portion of <sender> might not
+	// be the same as the <domain> argument when check_host() is initially
+	// evaluated.  In most other cases it will be the same (see Section 5.2
+	// below).
 	testResolverCache.Purge()
 
 	dns.HandleFunc("a.test.", zone(map[uint16][]string{
@@ -212,35 +210,47 @@ func TestMacro_Domains(t *testing.T) {
 	}))
 	defer dns.HandleRemove("positive.b.test.")
 
-	parseTestCases := []parseTestCase{
-		{"v=spf1 include:a.test -all", net.IP{127, 0, 0, 1}, Pass},
-		{"v=spf1 include:b.test -all", net.IP{127, 0, 0, 1}, Pass},
+	dns.HandleFunc("c.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`c.test. 0 IN TXT "v=spf1 include:%{h} -all"`,
+		},
+	}))
+	defer dns.HandleRemove("c.test.")
+
+	dns.HandleFunc("positive.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`positive.test. 0 IN TXT "v=spf1 +all"`,
+		},
+	}))
+	defer dns.HandleRemove("positive.test.")
+
+	tests := []struct {
+		query   string
+		helo    string
+		want    Result
+		wantErr bool
+	}{
+		{"v=spf1 include:a.test -all", "", Pass, false},
+		{"v=spf1 include:b.test -all", "", Pass, false},
+		{"v=spf1 include:c.test -all", "positive.test", Pass, false},
 	}
 
-	for _, testcase := range parseTestCases {
-		type R struct {
-			r Result
-			e error
-		}
-		done := make(chan R)
-		go func() {
-			result, _, err, _ :=
-				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).
-					with(testcase.Query, "a.test", "c.test", testcase.IP).
-					check()
-			done <- R{result, err}
-		}()
-		select {
-		case <-time.After(5 * time.Second):
-			t.Errorf("%q failed due to timeout", testcase.Query)
-		case r := <-done:
-			if r.r != Permerror && r.r != Temperror && r.e != nil {
-				t.Errorf("%q Unexpected error while parsing: %s", testcase.Query, r.e)
-			}
-			if r.r != testcase.Result {
-				t.Errorf("%q Expected %v, got %v", testcase.Query, testcase.Result, r.r)
-			}
+	const skipAllBut = -1
+	for no, test := range tests {
+		if skipAllBut != -1 && skipAllBut != no {
 			continue
 		}
+		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
+			got, _, err, _ :=
+				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)), WithHeloDomain(test.helo)).
+					with(test.query, "a.test", "c.test", net.IP{127, 0, 0, 1}).
+					check()
+			if test.wantErr != (err != nil) {
+				t.Errorf("%q err=%s", test.query, err)
+			}
+			if got != test.want {
+				t.Errorf("%q got=%v, want %v", test.query, got, test.want)
+			}
+		})
 	}
 }

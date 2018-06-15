@@ -99,6 +99,14 @@ func WithListener(l Listener) Option {
 	}
 }
 
+func WithHeloDomain(s string) Option {
+	return func(p *parser) {
+		if isDomainName(s) {
+			p.heloDomain = s
+		}
+	}
+}
+
 // Result represents result of SPF evaluation as it defined by RFC7208
 // https://tools.ietf.org/html/rfc7208#section-2.6
 type Result int
@@ -287,4 +295,33 @@ func NormalizeFQDN(name string) string {
 		name = name + "."
 	}
 	return strings.ToLower(name)
+}
+
+// When the result of macro expansion is used in a domain name query, if
+// the expanded domain name exceeds 253 characters (the maximum length
+// of a domain name in this format), the left side is truncated to fit,
+// by removing successive domain labels (and their following dots) until
+// the total length does not exceed 253 characters.
+func truncateFQDN(s string) (string, error) {
+	l := len(s)
+	if l < 254 || l == 254 && s[l-1] == '.' {
+		return s, nil
+	}
+	dot := -1
+	l = 0
+	i := len(s) - 1
+	for i >= 0 && l < 253 {
+		if s[i] == '.' {
+			dot = i
+		}
+		l++
+		i--
+	}
+	if dot < 0 {
+		return "", newInvalidDomainError(s)
+	}
+	if s[i] == '.' {
+		return s[i+1:], nil
+	}
+	return s[dot+1:], nil
 }

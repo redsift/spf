@@ -176,7 +176,17 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'd', 'D', 'h', 'H':
+	case 'h', 'H':
+		curItem = item{p.heloDomain, negative, delimiter, false}
+		m.moveon()
+		result, err = parseDelimiter(m, &curItem)
+		if err != nil {
+			break
+		}
+		m.output = append(m.output, result)
+		m.moveon()
+
+	case 'd', 'D':
 		curItem = item{p.domain, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)

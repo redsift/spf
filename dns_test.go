@@ -62,8 +62,7 @@ func TestHandleNoSuchHostDNSError(t *testing.T) {
 }
 */
 
-// DNS domain name validation.
-func TestDNSName(t *testing.T) {
+func TestIsDomainName(t *testing.T) {
 	z := func(n int) string { return strings.Repeat("z", n) }
 
 	tests := []struct {
@@ -98,6 +97,45 @@ func TestDNSName(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
 			if isDomainName(test.domain) != test.want {
 				t.Errorf("isDomainName(%q) = %v; want %v", test.domain, !test.want, test.want)
+			}
+		})
+	}
+}
+
+func TestTruncateFQDN(t *testing.T) {
+	z := func(n int) string { return strings.Repeat("z", n) }
+
+	tests := []struct {
+		fqdn    string
+		want    string
+		wantErr bool
+	}{
+		{"1.com", "1.com", false},
+		{z(254), "", true},
+		{strings.Join([]string{"253", z(245), "com"}, "."),
+			strings.Join([]string{"253", z(245), "com"}, "."), false},
+		{strings.Join([]string{"254", z(246), "com"}, "."),
+			strings.Join([]string{z(246), "com"}, "."), false},
+		{strings.Join([]string{"254dot", z(242), "com."}, "."),
+			strings.Join([]string{"254dot", z(242), "com."}, "."), false},
+		{strings.Join([]string{"a", "b", z(247), "com"}, "."),
+			strings.Join([]string{"b", z(247), "com"}, "."), false},
+		{strings.Join([]string{"a", "bb", z(247), "com"}, "."),
+			strings.Join([]string{z(247), "com"}, "."), false},
+	}
+
+	const skipAllBut = -1
+	for no, test := range tests {
+		if skipAllBut != -1 && skipAllBut != no {
+			continue
+		}
+		t.Run(fmt.Sprintf("%d_%s", no, test.fqdn), func(t *testing.T) {
+			got, err := truncateFQDN(test.fqdn)
+			if test.wantErr != (err != nil) {
+				t.Errorf("truncateFQDN(%q) err=%q, wantErr=%t", test.fqdn, err, test.wantErr)
+			}
+			if got != test.want {
+				t.Errorf("truncateFQDN(%q) = %q; want %q", test.fqdn, got, test.want)
 			}
 		})
 	}

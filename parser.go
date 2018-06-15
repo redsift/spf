@@ -47,6 +47,7 @@ func (e SyntaxError) TokenString() string {
 type parser struct {
 	sender        string
 	domain        string
+	heloDomain    string
 	ip            net.IP
 	query         string
 	resolver      Resolver
@@ -382,6 +383,9 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 	if err == nil {
 		fqdn, err = parseMacro(p, fqdn)
 	}
+	if err == nil {
+		fqdn, err = truncateFQDN(fqdn)
+	}
 	if err == nil && !isDomainName(fqdn) {
 		err = newInvalidDomainError(fqdn)
 	}
@@ -414,6 +418,9 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 	if err == nil {
 		fqdn, err = parseMacro(p, fqdn)
 	}
+	if err == nil {
+		fqdn, err = truncateFQDN(fqdn)
+	}
 	if err == nil && !isDomainName(fqdn) {
 		err = newInvalidDomainError(fqdn)
 	}
@@ -442,6 +449,9 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	domain, err := parseMacro(p, t.value)
+	if err == nil {
+		domain, err = truncateFQDN(domain)
+	}
 	domain = NormalizeFQDN(domain)
 	p.fireDirective(t, domain)
 	if err != nil {
@@ -497,6 +507,9 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 
 func (p *parser) parseExists(t *token) (bool, Result, error) {
 	resolvedDomain, err := parseMacroToken(p, t)
+	if err == nil {
+		resolvedDomain, err = truncateFQDN(resolvedDomain)
+	}
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
@@ -535,6 +548,9 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	)
 
 	domain, err := parseMacro(p, t.value)
+	if err == nil {
+		domain, err = truncateFQDN(domain)
+	}
 	redirectDomain := NormalizeFQDN(domain)
 
 	p.fireDirective(t, redirectDomain)
@@ -563,6 +579,10 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 	}
 	if domain == "" {
 		return "", SyntaxError{t, ErrEmptyDomain}
+	}
+	domain, err = truncateFQDN(domain)
+	if err != nil {
+		return "", SyntaxError{t, err}
 	}
 
 	txts, err := p.resolver.LookupTXT(NormalizeFQDN(domain))

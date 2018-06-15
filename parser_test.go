@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/miekg/dns"
 )
 
@@ -944,6 +946,8 @@ func TestParse(t *testing.T) {
 		{"v=spf1 include:loop.matching.com -all", net.IP{10, 0, 0, 1}, Permerror},
 		{"v=spf1 redirect=loop2.matching.com", net.IP{10, 0, 0, 1}, Permerror},
 		{"v=spf1 include:%{i}.matching.com -all", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 include:" + strings.Repeat("z", 254) + ".%{i}.matching.com -all", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 include:" + strings.Repeat("z", 254) + "%{i}.matching.com -all", net.IP{10, 0, 0, 1}, Permerror},
 		{"v=spf1 redirect=%{i}.matching.com", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 a:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 mx:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
