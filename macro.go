@@ -133,7 +133,6 @@ type item struct {
 }
 
 func scanMacro(m *macro, p *parser) (stateFn, error) {
-
 	r, err := m.next()
 	if err != nil {
 		return nil, err
@@ -145,7 +144,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	var email *addrSpec
 
 	switch r {
-	case 's':
+	case 's', 'S':
 		curItem = item{p.sender, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
@@ -155,7 +154,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'l':
+	case 'l', 'L':
 		email = parseAddrSpec(p.sender, p.sender)
 		curItem = item{email.local, negative, delimiter, false}
 		m.moveon()
@@ -166,7 +165,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'o':
+	case 'o', 'O':
 		email = parseAddrSpec(p.sender, p.sender)
 		curItem = item{email.domain, negative, delimiter, false}
 		m.moveon()
@@ -177,7 +176,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'd', 'h':
+	case 'd', 'D', 'h', 'H':
 		curItem = item{p.domain, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
@@ -187,7 +186,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'i':
+	case 'i', 'I':
 		curItem = item{p.ip.String(), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
@@ -197,9 +196,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.output = append(m.output, result)
 		m.moveon()
 
-	case 'p':
+	case 'p', 'P':
 		// let's not use it for the moment, RFC doesn't recommend it.
-	case 'v':
+	case 'v', 'V':
 		// TODO(zaccone): move such functions to some generic utils module
 		if p.ip.To4() == nil {
 			m.output = append(m.output, "ip6")
@@ -271,7 +270,7 @@ func parseDelimiter(m *macro, curItem *item) (string, error) {
 		}
 	}
 
-	if r == 'r' {
+	if r == 'r' || r == 'R' {
 		curItem.reversed = true
 		r, err = m.next()
 		if err != nil {
