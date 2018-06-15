@@ -26,7 +26,7 @@ func parseAddrSpec(addr, domain string) *addrSpec {
 	} else {
 		d = addr[i+1:]
 	}
-	if i == 0 { // @domain
+	if i < 1 { // [@]domain
 		l = postmaster
 	} else {
 		l = addr[:i]
