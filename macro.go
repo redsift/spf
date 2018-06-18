@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -24,18 +25,19 @@ type macro struct {
 	input  string
 	output []string
 	state  stateFn
+	exp    bool
 }
 
-func newMacro(input string) *macro {
-	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil}
+func newMacro(input string, exp bool) *macro {
+	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp}
 }
 
 type stateFn func(*macro, *parser) (stateFn, error)
 
 // parseMacro evaluates whole input string and replaces keywords with appropriate
 // values from
-func parseMacro(p *parser, input string) (string, error) {
-	m := newMacro(input)
+func parseMacro(p *parser, input string, exp bool) (string, error) {
+	m := newMacro(input, exp)
 	var err error
 	for m.state = scanText; m.state != nil; {
 		m.state, err = m.state(m, p)
@@ -51,7 +53,7 @@ func parseMacro(p *parser, input string) (string, error) {
 // parseMacroToken evaluates whole input string and replaces keywords with appropriate
 // values from
 func parseMacroToken(p *parser, t *token) (string, error) {
-	return parseMacro(p, t.value)
+	return parseMacro(p, t.value, false)
 }
 
 // macro.eof() return true when scanned record has ended, false otherwise
@@ -143,13 +145,17 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	var result string
 	var email *addrSpec
 
+	errInvalidMacroSyntax := func(e error) (stateFn, error) {
+		return nil, fmt.Errorf("wrong macro syntax: %s", e.Error())
+	}
+
 	switch r {
 	case 's', 'S':
 		curItem = item{p.sender, negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
@@ -160,7 +166,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
@@ -171,7 +177,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
@@ -181,7 +187,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
@@ -191,7 +197,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
@@ -201,13 +207,14 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
-			break
+			return errInvalidMacroSyntax(err)
 		}
 		m.output = append(m.output, result)
 		m.moveon()
 
 	case 'p', 'P':
 		// let's not use it for the moment, RFC doesn't recommend it.
+
 	case 'v', 'V':
 		// TODO(zaccone): move such functions to some generic utils module
 		if p.ip.To4() == nil {
@@ -216,11 +223,45 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 			m.output = append(m.output, "in-addr")
 		}
 		m.moveon()
-		// TODO(zaccone): add remaining "c", "r", "t"
-	}
 
-	if err != nil {
-		return nil, fmt.Errorf("wrong macro syntax: %s", err.Error())
+	case 'c', 'C':
+		if !m.exp {
+			return errInvalidMacroSyntax(errors.New(`'c' macro letter allowed only in "exp" text`))
+		}
+		curItem = item{p.ip.String(), negative, delimiter, false}
+		m.moveon()
+		result, err = parseDelimiter(m, &curItem)
+		if err != nil {
+			return errInvalidMacroSyntax(err)
+		}
+		m.output = append(m.output, result)
+		m.moveon()
+
+	case 'r', 'R':
+		if !m.exp {
+			return errInvalidMacroSyntax(errors.New(`'r' macro letter allowed only in "exp" text`))
+		}
+		curItem = item{p.receivingFQDN, negative, delimiter, false}
+		m.moveon()
+		result, err = parseDelimiter(m, &curItem)
+		if err != nil {
+			return errInvalidMacroSyntax(err)
+		}
+		m.output = append(m.output, result)
+		m.moveon()
+
+	case 't', 'T':
+		if !m.exp {
+			return errInvalidMacroSyntax(errors.New(`'t' macro letter allowed only in "exp" text`))
+		}
+		curItem = item{strconv.FormatInt(p.evaluatedOn.UTC().Unix(), 10), negative, delimiter, false}
+		m.moveon()
+		result, err = parseDelimiter(m, &curItem)
+		if err != nil {
+			return errInvalidMacroSyntax(err)
+		}
+		m.output = append(m.output, result)
+		m.moveon()
 	}
 
 	r, err = m.next()
@@ -234,7 +275,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	m.moveon()
 	return scanText, nil
-
 }
 
 func parseDelimiter(m *macro, curItem *item) (string, error) {

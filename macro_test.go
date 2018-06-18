@@ -6,6 +6,8 @@ import (
 
 	"fmt"
 
+	"time"
+
 	"github.com/miekg/dns"
 )
 
@@ -224,15 +226,45 @@ func TestMacro_Domains(t *testing.T) {
 	}))
 	defer dns.HandleRemove("positive.test.")
 
+	dns.HandleFunc("c.explain.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`c.explain.test. 0 IN TXT "%{c}"`,
+		},
+	}))
+	defer dns.HandleRemove("c.explain.test.")
+
+	dns.HandleFunc("r.explain.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`r.explain.test. 0 IN TXT "%{r}"`,
+		},
+	}))
+	defer dns.HandleRemove("r.explain.test.")
+
+	dns.HandleFunc("t.explain.test.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`t.explain.test. 0 IN TXT "%{t}"`,
+		},
+	}))
+	defer dns.HandleRemove("t.explain.test.")
+
 	tests := []struct {
-		query   string
-		helo    string
-		want    Result
-		wantErr bool
+		query         string
+		helo          string
+		receivingFQDN string
+		want          Result
+		wantExp       string
+		wantErr       bool
 	}{
-		{"v=spf1 include:a.test -all", "", Pass, false},
-		{"v=spf1 include:b.test -all", "", Pass, false},
-		{"v=spf1 include:c.test -all", "positive.test", Pass, false},
+		{"v=spf1 include:a.test -all", "", "", Pass, "", false},
+		{"v=spf1 include:b.test -all", "", "", Pass, "", false},
+		{"v=spf1 include:c.test -all", "positive.test", "", Pass, "", false},
+		{"v=spf1 -all exp=c.explain.test", "positive.test", "", Fail, "1000::1", false},
+		{"v=spf1 -all exp=r.explain.test", "positive.test", "example.com", Fail, "example.com", false},
+		{"v=spf1 -all exp=t.explain.test", "positive.test", "", Fail, "1", false},
+		{"v=spf1 -all exp=r.explain.test", "positive.test", "", Fail, "unknown", false},
+		{"v=spf1 include:%{c}", "positive.test", "", Permerror, "", true},
+		{"v=spf1 include:%{r}", "positive.test", "", Permerror, "", true},
+		{"v=spf1 include:%{t}", "positive.test", "", Permerror, "", true},
 	}
 
 	const skipAllBut = -1
@@ -241,15 +273,21 @@ func TestMacro_Domains(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, _, err, _ :=
-				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)), WithHeloDomain(test.helo)).
-					with(test.query, "a.test", "c.test", net.IP{127, 0, 0, 1}).
+			got, exp, err, _ :=
+				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+					HeloDomain(test.helo),
+					EvaluatedOn(time.Unix(1, 0)),
+					ReceivingFQDN(test.receivingFQDN)).
+					with(test.query, "a.test", "c.test", net.ParseIP("1000:0000:0000:0000:0000:0000:0000:0001")).
 					check()
 			if test.wantErr != (err != nil) {
 				t.Errorf("%q err=%s", test.query, err)
 			}
 			if got != test.want {
-				t.Errorf("%q got=%v, want %v", test.query, got, test.want)
+				t.Errorf("%q got=%v, want=%v", test.query, got, test.want)
+			}
+			if exp != test.wantExp {
+				t.Errorf("%q exp=%q, wantExp=%q", test.query, exp, test.wantExp)
 			}
 		})
 	}

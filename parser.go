@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func matchingResult(qualifier tokenType) (Result, error) {
@@ -55,6 +56,8 @@ type parser struct {
 	ignoreMatches bool
 	options       []Option
 	visited       *stringsStack
+	evaluatedOn   time.Time
+	receivingFQDN string
 }
 
 // newParser creates new Parser objects and returns its reference.
@@ -70,9 +73,11 @@ func newParser(opts ...Option) *parser {
 func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
 		//mechanisms: make([]*token, 0, 10),
-		resolver: NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:  opts,
-		visited:  visited,
+		resolver:      NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:       opts,
+		visited:       visited,
+		receivingFQDN: "unknown",
+		evaluatedOn:   time.Now().UTC(),
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -381,7 +386,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 func (p *parser) parseA(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn)
+		fqdn, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -416,7 +421,7 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 func (p *parser) parseMX(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn)
+		fqdn, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -448,7 +453,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain, err := parseMacro(p, t.value)
+	domain, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -547,7 +552,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		result Result
 	)
 
-	domain, err := parseMacro(p, t.value)
+	domain, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -592,7 +597,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 
 	// RFC 7208, section 6.2 specifies that result strings should be
 	// concatenated with no spaces.
-	exp, err := parseMacro(p, strings.Join(txts, ""))
+	exp, err := parseMacro(p, strings.Join(txts, ""), true)
 	if err != nil {
 		return "", SyntaxError{t, err}
 	}

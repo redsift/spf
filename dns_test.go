@@ -82,6 +82,7 @@ func TestIsDomainName(t *testing.T) {
 		{"a.b.com-", false},
 		{"a.b..", false},
 		{"b.com.", true},
+		{"unknown", true},
 		{strings.Join([]string{"63", z(63), "com"}, "."), true},
 		{strings.Join([]string{"64", z(64), "com"}, "."), false},
 		{strings.Join([]string{"253", z(53), z(63), z(63), z(63), "com"}, "."), true},

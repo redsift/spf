@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Errors could be used for root couse analysis
@@ -99,11 +100,25 @@ func WithListener(l Listener) Option {
 	}
 }
 
-func WithHeloDomain(s string) Option {
+func HeloDomain(s string) Option {
 	return func(p *parser) {
 		if isDomainName(s) {
 			p.heloDomain = s
 		}
+	}
+}
+
+func ReceivingFQDN(s string) Option {
+	return func(p *parser) {
+		if isDomainName(s) {
+			p.receivingFQDN = s
+		}
+	}
+}
+
+func EvaluatedOn(t time.Time) Option {
+	return func(p *parser) {
+		p.evaluatedOn = t
 	}
 }
 
