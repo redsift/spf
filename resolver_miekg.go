@@ -246,7 +246,8 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 				return
 			}
 		}
-		if r.parallelism < 2 { // only 2 types of lookup defined
+		if r.parallelism == 1 {
+			// 0 == unlimited, and only 2 types of lookup defined
 			lookup(qType)
 		} else {
 			go lookup(qType)
@@ -285,6 +286,7 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, er
 
 	var names chan string
 	if r.parallelism < 1 {
+		// 0 == unlimited
 		names = make(chan string, len(res.Answer))
 	} else {
 		names = make(chan string, r.parallelism)
@@ -296,13 +298,18 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, er
 			continue
 		}
 		wg.Add(1)
-		go func() {
+		match := func() {
 			name := <-names
 			found, err := r.MatchIP(name, matcher)
 			hits <- hit{found, err}
 			wg.Done()
-		}()
+		}
 		names <- mx.Mx
+		if r.parallelism == 1 {
+			match()
+		} else {
+			go match()
+		}
 	}
 
 	go func() {
