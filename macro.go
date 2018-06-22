@@ -3,6 +3,7 @@ package spf
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -203,7 +204,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 
 	case 'i', 'I':
-		curItem = item{p.ip.String(), negative, delimiter, false}
+		curItem = item{toDottedHex(p.ip), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -275,6 +276,40 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	m.moveon()
 	return scanText, nil
+}
+
+func toDottedHex(ip net.IP) string {
+	if len(ip) == net.IPv4len {
+		return ip.String()
+	}
+
+	const maxLen = len("ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff")
+	b := make([]byte, 0, maxLen)
+
+	// Print with possible :: in place of run of zeros
+	for i := 0; i < net.IPv6len; i += 1 {
+		if i > 0 {
+			b = append(b, '.')
+		}
+		b = appendHex(b, ip[i])
+	}
+	return string(b)
+}
+
+const hexDigit = "0123456789abcdef"
+
+// Convert i to a hexadecimal string. Leading zeros are not printed.
+func appendHex(dst []byte, i byte) []byte {
+	if i == 0 {
+		return append(dst, '0')
+	}
+	for j := 7; j >= 0; j-- {
+		v := i >> uint(j*4)
+		if v > 0 {
+			dst = append(dst, hexDigit[v&0xf])
+		}
+	}
+	return dst
 }
 
 func parseDelimiter(m *macro, curItem *item) (string, error) {

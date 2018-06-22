@@ -49,6 +49,8 @@ func TestMacroIteration(t *testing.T) {
 		{"Please email to %{o} end", sender, domain, ip4, "Please email to domain.com end"},
 		{"domain %{d} end", sender, domain, ip4, "domain matching.com end"},
 		{"Address IP %{i} end", sender, domain, ip4, "Address IP 10.11.12.13 end"},
+		{"Address IPv6 %{i} end", sender, domain, net.ParseIP("1000::ff"), "Address IPv6 10.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ff end"},
+		{"Address IPv6 %{ir} end", sender, domain, net.ParseIP("1000::ff"), "Address IPv6 ff.0.0.0.0.0.0.0.0.0.0.0.0.0.0.10 end"},
 		{"Address IP %{i1} end", sender, domain, ip4, "Address IP 13 end"},
 		{"Address IP %{i100} end", sender, domain, ip4, "Address IP 10.11.12.13 end"},
 		{"Address IP %{ir} end", sender, domain, ip4, "Address IP 13.12.11.10 end"},
