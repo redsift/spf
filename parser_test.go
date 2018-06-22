@@ -3,10 +3,9 @@ package spf
 import (
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
-
-	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -960,7 +959,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {

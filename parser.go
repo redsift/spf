@@ -214,6 +214,9 @@ func (p *parser) check() (Result, string, error, unused) {
 			return result, s, err, unused{mechanisms[i+1:], redirect}
 		}
 		p.fireNonMatch(token, result, err)
+
+		// all expected errors should be thrown with mathes=true
+		// others are being registered by listener
 	}
 
 	if !all {
@@ -449,6 +452,9 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
+	if err != nil {
+		return true, Permerror, SyntaxError{t, err}
+	}
 	return found, result, err
 }
 
