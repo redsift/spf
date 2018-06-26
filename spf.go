@@ -186,6 +186,44 @@ func (r Result) String() string {
 	}
 }
 
+func (r Result) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+
+func (r *Result) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*r = 0
+		return nil
+	}
+	switch s := string(text); s {
+	case "none":
+		*r = None
+		return nil
+	case "neutral":
+		*r = Neutral
+		return nil
+	case "pass":
+		*r = Pass
+		return nil
+	case "fail":
+		*r = Fail
+		return nil
+	case "softfail":
+		*r = Softfail
+		return nil
+	case "temperror":
+		*r = Temperror
+		return nil
+	case "permerror":
+		*r = Permerror
+		return nil
+	default:
+		i, err := strconv.Atoi(s)
+		*r = Result(i)
+		return err
+	}
+}
+
 // CheckHost is a main entrypoint function evaluating e-mail with regard to
 // SPF and it utilizes DNSResolver as a resolver.
 // As per RFC 7208 it will accept 3 parameters:
