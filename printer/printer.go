@@ -22,8 +22,13 @@ type Printer struct {
 	sync.Mutex
 	w    io.Writer
 	c    int
+	lc   int
 	r    spf.Resolver
 	done bool
+}
+
+func (p *Printer) LookupsCount() int {
+	return p.lc
 }
 
 func (p *Printer) CheckHost(ip net.IP, domain, sender string) {
@@ -75,16 +80,19 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 
 func (p *Printer) LookupTXT(name string) ([]string, error) {
 	fmt.Fprintf(p.w, "%s  lookup(TXT) %s\n", strings.Repeat("  ", p.c), name)
+	p.lc++
 	return p.r.LookupTXT(name)
 }
 
 func (p *Printer) LookupTXTStrict(name string) ([]string, error) {
 	fmt.Fprintf(p.w, "%s  lookup(TXT:strict) %s\n", strings.Repeat("  ", p.c), name)
+	p.lc++
 	return p.r.LookupTXTStrict(name)
 }
 
 func (p *Printer) Exists(name string) (bool, error) {
 	fmt.Fprintf(p.w, "%s  lookup(A)\n", strings.Repeat("  ", p.c))
+	p.lc++
 	return p.r.Exists(name)
 }
 
@@ -95,6 +103,7 @@ func (p *Printer) MatchingIP(_, mechanism, _ string, fqdn string, ipn net.IPNet,
 		return
 	}
 	n, _ := ipn.Mask.Size()
+	p.lc++
 	fmt.Fprintf(p.w, "%s  lookup(%s:%s) %s -> (%s/%d has? %s) = %t\n", strings.Repeat("  ", p.c), mechanism, fqdn, host, ipn.IP, n, ip, ipn.Contains(ip))
 }
 

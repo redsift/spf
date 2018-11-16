@@ -2,6 +2,7 @@ package printer
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 
@@ -45,6 +46,7 @@ func ExamplePrinter() {
 	if err != nil {
 		log.Fatalf("%s %q %s", res, s, err)
 	}
+	fmt.Printf("## of lookups: %d\n", p.LookupsCount())
 
 	// Unordered output:
 	// CHECK_HOST("0.0.0.0", "subito.it", "aspmx.l.google.com")
@@ -112,6 +114,7 @@ func ExamplePrinter() {
 	//   ptr (ptr.test.redsift.io)
 	//   ~all
 	// = softfail, "", <nil>
+	// ## of lookups: 14
 }
 
 var dump = []byte(`[
