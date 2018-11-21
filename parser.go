@@ -90,7 +90,7 @@ func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 //
 // The function returns result of verification, explanations as result of "exp=",
 // and error as the reason for the encountered problem.
-func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, err error) {
+func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, spf string, err error) {
 	var u unused
 	p.fireCheckHost(ip, domain, sender)
 	defer func() {
@@ -108,11 +108,11 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	* domain name, [...], check_host() immediately returns None
 	 */
 	if !isDomainName(domain) {
-		return None, "", newInvalidDomainError(domain)
+		return None, "", "", newInvalidDomainError(domain)
 	}
 
 	if p.visited.has(domain) {
-		return Permerror, "", ErrLoopDetected
+		return Permerror, "", "", ErrLoopDetected
 	}
 
 	txts, err := p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
@@ -120,22 +120,22 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return Permerror, "", err
+		return Permerror, "", "", err
 	case ErrDNSPermerror:
-		return None, "", err
+		return None, "", "", err
 	default:
-		return Temperror, "", err
+		return Temperror, "", "", err
 	}
 
 	// If the resultant record set includes no records, check_host()
 	// produces the "none" result.  If the resultant record set includes
 	// more than one record, check_host() produces the "permerror" result.
-	spf, err := filterSPF(txts)
+	spf, err = filterSPF(txts)
 	if err != nil {
-		return Permerror, "", err
+		return Permerror, "", "", err
 	}
 	if spf == "" {
-		return None, "", ErrSPFNotFound
+		return None, "", "", ErrSPFNotFound
 	}
 
 	r, expl, err, u = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
@@ -471,7 +471,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	if domain == "" {
 		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
-	theirResult, _, err := p.checkHost(p.ip, domain, p.sender)
+	theirResult, _, _, err := p.checkHost(p.ip, domain, p.sender)
 
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
@@ -569,7 +569,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		return Permerror, SyntaxError{t, err}
 	}
 
-	if result, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
+	if result, _, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
 		//TODO(zaccone): confirm result value
 		result = Permerror
 	} else if result == None || result == Permerror {

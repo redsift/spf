@@ -234,9 +234,9 @@ func (r *Result) UnmarshalText(text []byte) error {
 // This means domain should already be extracted from MAIL FROM field so this
 // function can focus on the core part.
 //
-// CheckHost returns result of verification, explanations as result of "exp=",
+// CheckHost returns result of verification, explanations as result of "exp=", raw discovered SPF policy
 // and error as the reason for the encountered problem.
-func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string, error) {
+func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string, string, error) {
 	return newParser(opts...).checkHost(ip, domain, sender)
 }
 

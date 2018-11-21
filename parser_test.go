@@ -1250,7 +1250,7 @@ func TestSelectingRecord(t *testing.T) {
 
 	ip := net.ParseIP("10.0.0.1")
 	for i, s := range samples {
-		r, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
+		r, _, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
 		if r != s.r || e != s.e {
 			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
 		}
