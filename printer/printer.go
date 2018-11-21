@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 
 	"sync"
 
@@ -22,13 +23,13 @@ type Printer struct {
 	sync.Mutex
 	w    io.Writer
 	c    int
-	lc   int
+	lc   int64
 	r    spf.Resolver
 	done bool
 }
 
 func (p *Printer) LookupsCount() int {
-	return p.lc
+	return int(p.lc)
 }
 
 func (p *Printer) CheckHost(ip net.IP, domain, sender string) {
@@ -80,30 +81,31 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 
 func (p *Printer) LookupTXT(name string) ([]string, error) {
 	fmt.Fprintf(p.w, "%s  lookup(TXT) %s\n", strings.Repeat("  ", p.c), name)
+	atomic.AddInt64(&p.lc, 1)
 	p.lc++
 	return p.r.LookupTXT(name)
 }
 
 func (p *Printer) LookupTXTStrict(name string) ([]string, error) {
 	fmt.Fprintf(p.w, "%s  lookup(TXT:strict) %s\n", strings.Repeat("  ", p.c), name)
-	p.lc++
+	atomic.AddInt64(&p.lc, 1)
 	return p.r.LookupTXTStrict(name)
 }
 
 func (p *Printer) Exists(name string) (bool, error) {
 	fmt.Fprintf(p.w, "%s  lookup(A)\n", strings.Repeat("  ", p.c))
-	p.lc++
+	atomic.AddInt64(&p.lc, 1)
 	return p.r.Exists(name)
 }
 
 func (p *Printer) MatchingIP(_, mechanism, _ string, fqdn string, ipn net.IPNet, host string, ip net.IP) {
 	p.Lock()
 	defer p.Unlock()
+	atomic.AddInt64(&p.lc, 1)
 	if p.done {
 		return
 	}
 	n, _ := ipn.Mask.Size()
-	p.lc++
 	fmt.Fprintf(p.w, "%s  lookup(%s:%s) %s -> (%s/%d has? %s) = %t\n", strings.Repeat("  ", p.c), mechanism, fqdn, host, ipn.IP, n, ip, ipn.Contains(ip))
 }
 

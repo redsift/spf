@@ -31,7 +31,7 @@ func ExamplePrinter() {
 	// create a printer
 	p := New(os.Stdout, r)
 
-	res, s, err := spf.CheckHost(net.ParseIP("0.0.0.0"), "subito.it", "aspmx.l.google.com",
+	res, s, _, err := spf.CheckHost(net.ParseIP("0.0.0.0"), "subito.it", "aspmx.l.google.com",
 		spf.WithResolver(p),
 		spf.WithListener(p),
 	)
@@ -39,7 +39,7 @@ func ExamplePrinter() {
 		log.Fatalf("%s %q %s", res, s, err)
 	}
 
-	res, s, err = spf.CheckHost(net.ParseIP("0.0.0.0"), "ptr.test.redsift.io", "aspmx.l.google.com",
+	res, s, _, err = spf.CheckHost(net.ParseIP("0.0.0.0"), "ptr.test.redsift.io", "aspmx.l.google.com",
 		spf.WithResolver(p),
 		spf.WithListener(p),
 	)
