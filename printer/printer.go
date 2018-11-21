@@ -29,7 +29,8 @@ type Printer struct {
 }
 
 func (p *Printer) LookupsCount() int {
-	return int(p.lc)
+	// we deduct 1 for the very first lookup for root SPF policy
+	return int(p.lc) - 1
 }
 
 func (p *Printer) CheckHost(ip net.IP, domain, sender string) {

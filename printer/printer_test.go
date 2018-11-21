@@ -114,7 +114,7 @@ func ExamplePrinter() {
 	//   ptr (ptr.test.redsift.io)
 	//   ~all
 	// = softfail, "", <nil>
-	// ## of lookups: 14
+	// ## of lookups: 13
 }
 
 var dump = []byte(`[
