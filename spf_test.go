@@ -1,27 +1,30 @@
-package spf
+package spf_test
 
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
+
+	"github.com/redsift/spf"
 )
 
 func TestResult_MarshalJSON(t *testing.T) {
 	tests := []struct {
-		r       Result
+		r       spf.Result
 		want    []byte
 		wantErr bool
 	}{
-		{None, []byte(`"none"`), false},
-		{Neutral, []byte(`"neutral"`), false},
-		{Pass, []byte(`"pass"`), false},
-		{Fail, []byte(`"fail"`), false},
-		{Softfail, []byte(`"softfail"`), false},
-		{Temperror, []byte(`"temperror"`), false},
-		{Permerror, []byte(`"permerror"`), false},
-		{Result(101), []byte(`"101"`), false},
-		{Result(0), []byte(`"0"`), false},
+		{spf.None, []byte(`"none"`), false},
+		{spf.Neutral, []byte(`"neutral"`), false},
+		{spf.Pass, []byte(`"pass"`), false},
+		{spf.Fail, []byte(`"fail"`), false},
+		{spf.Softfail, []byte(`"softfail"`), false},
+		{spf.Temperror, []byte(`"temperror"`), false},
+		{spf.Permerror, []byte(`"permerror"`), false},
+		{spf.Result(101), []byte(`"101"`), false},
+		{spf.Result(0), []byte(`"0"`), false},
 	}
 
 	const wantTest = -1
@@ -45,19 +48,19 @@ func TestResult_MarshalJSON(t *testing.T) {
 func TestResult_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		s       string
-		want    Result
+		want    spf.Result
 		wantErr bool
 	}{
-		{`"none"`, None, false},
-		{`"neutral"`, Neutral, false},
-		{`"pass"`, Pass, false},
-		{`"fail"`, Fail, false},
-		{`"softfail"`, Softfail, false},
-		{`"temperror"`, Temperror, false},
-		{`"permerror"`, Permerror, false},
-		{`"101"`, Result(101), false},
-		{`"0"`, Result(0), false},
-		{`"x"`, Result(0), true},
+		{`"none"`, spf.None, false},
+		{`"neutral"`, spf.Neutral, false},
+		{`"pass"`, spf.Pass, false},
+		{`"fail"`, spf.Fail, false},
+		{`"softfail"`, spf.Softfail, false},
+		{`"temperror"`, spf.Temperror, false},
+		{`"permerror"`, spf.Permerror, false},
+		{`"101"`, spf.Result(101), false},
+		{`"0"`, spf.Result(0), false},
+		{`"x"`, spf.Result(0), true},
 	}
 
 	const wantTest = -1
@@ -67,7 +70,7 @@ func TestResult_UnmarshalJSON(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", testNo, test.s), func(t *testing.T) {
-			var got Result
+			var got spf.Result
 			err := json.Unmarshal([]byte(test.s), &got)
 			if test.wantErr != (err != nil) {
 				t.Errorf("json.Unmarshal() err=%v, wantErr=%t", err, test.wantErr)
@@ -77,4 +80,23 @@ func TestResult_UnmarshalJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckHost_Panic(t *testing.T) {
+	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53")
+	if err != nil {
+		t.Fatalf("NewMiekgDNSResolver() err=%s", err)
+	}
+
+	func() {
+		defer func() {
+			if x := recover(); x != nil {
+				t.Errorf("CheckHost() panicked with: %v", x)
+			}
+		}()
+		for i := 0; i < 500; i++ {
+			_, _, _, _ = spf.CheckHost(net.ParseIP("0.0.0.0"), "mail.1stopnetworks.bm", "mail.1stopnetworks.bm", spf.WithResolver(r))
+		}
+
+	}()
 }

@@ -2,10 +2,8 @@ package spf
 
 import (
 	"net"
-	"sync"
-
 	"strings"
-
+	"sync"
 	"time"
 
 	"github.com/bluele/gcache"
@@ -126,7 +124,7 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	for _, n := range []string{"udp", "tcp"} {
 		r.client.Net = n
 		res, _, err = r.client.Exchange(req, r.serverAddr)
-		if res.Truncated {
+		if err == nil && res.Truncated {
 			continue
 		}
 		break
