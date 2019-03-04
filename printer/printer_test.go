@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-
 	"os"
 
 	"github.com/bluele/gcache"
@@ -49,7 +48,7 @@ func ExamplePrinter() {
 	fmt.Printf("## of lookups: %d\n", p.LookupsCount())
 
 	// Unordered output:
-	// CHECK_HOST("0.0.0.0", "subito.it", "aspmx.l.google.com")
+	// CHECK_HOST("0.0.0.0", "subito.it.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) subito.it.
 	//   SPF: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   v=spf1
@@ -107,11 +106,11 @@ func ExamplePrinter() {
 	//   ip4:109.168.121.58/32 (109.168.121.58/32)
 	//   -all
 	// = fail, "", <nil>
-	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io", "aspmx.l.google.com")
+	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
 	//   SPF: v=spf1 ptr ~all
 	//   v=spf1
-	//   ptr (ptr.test.redsift.io)
+	//   ptr (ptr.test.redsift.io.)
 	//   ~all
 	// = softfail, "", <nil>
 	// ## of lookups: 13

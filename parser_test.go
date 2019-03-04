@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"strings"
@@ -1252,6 +1253,40 @@ func TestSelectingRecord(t *testing.T) {
 	for i, s := range samples {
 		r, _, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
 		if r != s.r || e != s.e {
+			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
+		}
+	}
+}
+
+func TestCheckHost_Loops(t *testing.T) {
+	dns.HandleFunc("example.com.", zone(map[uint16][]string{
+		dns.TypeA: {
+			`example.com. 0 IN A 1.1.1.1`,
+		},
+		dns.TypeMX: {
+			`example.com. 0 IN MX 0 1.1.1.1`,
+		},
+		dns.TypeTXT: {
+			`example.com. 0 IN TXT "v=spf1 a mx include:example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("example.com.")
+
+	dns.HandleFunc("mail.example.com.", zone(map[uint16][]string{}))
+	defer dns.HandleRemove("mail.example.com.")
+
+	samples := []struct {
+		d string
+		r Result
+		e error
+	}{
+		{"example.com", Permerror, SyntaxError{&token{tInclude, qPlus, "example.com"}, ErrLoopDetected}},
+	}
+
+	ip := net.ParseIP("10.0.0.1")
+	for i, s := range samples {
+		r, _, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
+		if r != s.r || fmt.Sprint(e) != fmt.Sprint(s.e) {
 			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
 		}
 	}

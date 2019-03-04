@@ -237,7 +237,7 @@ func (r *Result) UnmarshalText(text []byte) error {
 // CheckHost returns result of verification, explanations as result of "exp=", raw discovered SPF policy
 // and error as the reason for the encountered problem.
 func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string, string, error) {
-	return newParser(opts...).checkHost(ip, domain, sender)
+	return newParser(opts...).checkHost(ip, NormalizeFQDN(domain), sender)
 }
 
 // Starting with the set of records that were returned by the lookup,

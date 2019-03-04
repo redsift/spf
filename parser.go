@@ -111,7 +111,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", "", newInvalidDomainError(domain)
 	}
 
-	if p.visited.has(domain) {
+	if p.visited.has(NormalizeFQDN(domain)) {
 		return Permerror, "", "", ErrLoopDetected
 	}
 
@@ -215,7 +215,7 @@ func (p *parser) check() (Result, string, error, unused) {
 		}
 		p.fireNonMatch(token, result, err)
 
-		// all expected errors should be thrown with mathes=true
+		// all expected errors should be thrown with matches=true
 		// others are being registered by listener
 	}
 
