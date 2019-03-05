@@ -31,7 +31,51 @@ type SyntaxError struct {
 }
 
 func (e SyntaxError) Error() string {
-	return fmt.Sprintf(`error checking '%s': %s`, e.token.String(), e.err.Error())
+	var (
+		p     strings.Builder
+		cause = error(e)
+	)
+	for {
+		var (
+			t    *token
+			next bool
+		)
+		t, cause, next = Unwrap(cause)
+		if !next {
+			break
+		}
+		if p.Len() > 0 {
+			p.WriteByte(' ')
+		}
+		p.WriteString(t.String())
+	}
+	m := strings.Builder{}
+	m.WriteString(cause.Error())
+	if p.Len() > 0 {
+		m.WriteByte(' ')
+		m.WriteByte('[')
+		m.WriteString(p.String())
+		m.WriteByte(']')
+	}
+	return m.String()
+}
+
+func Unwrap(e error) (*token, error, bool) {
+	se, ok := e.(SyntaxError)
+	if ok {
+		return se.token, se.err, true
+	}
+	return nil, e, false
+}
+
+func Cause(e error) (error, string) {
+	var t, lastToken *token
+	for next := true; next; t, e, next = Unwrap(e) {
+		if t != nil {
+			lastToken = t
+		}
+	}
+	return e, lastToken.String()
 }
 
 func (e SyntaxError) Cause() error {
@@ -58,6 +102,7 @@ type parser struct {
 	visited       *stringsStack
 	evaluatedOn   time.Time
 	receivingFQDN string
+	stopAtError   func(error) bool
 }
 
 // newParser creates new Parser objects and returns its reference.
@@ -214,6 +259,11 @@ func (p *parser) check() (Result, string, error, unused) {
 			return result, s, err, unused{mechanisms[i+1:], redirect}
 		}
 		p.fireNonMatch(token, result, err)
+
+		// in walker-mode we want to count number of errors and check the counter against some threshold
+		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
+			return unreliableResult, "", ErrTooManyErrors, unused{mechanisms[i+1:], redirect}
+		}
 
 		// all expected errors should be thrown with matches=true
 		// others are being registered by listener

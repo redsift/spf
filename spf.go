@@ -24,6 +24,7 @@ var (
 	ErrNotIPv6           = errors.New("address isn't ipv6")
 	ErrLoopDetected      = errors.New("infinite recursion detected")
 	ErrUnreliableResult  = errors.New("result is unreliable with IgnoreMatches option enabled")
+	ErrTooManyErrors     = errors.New("too many errors")
 )
 
 // DomainError represents a domain check error
@@ -85,6 +86,29 @@ type Option func(*parser)
 func IgnoreMatches() Option {
 	return func(p *parser) {
 		p.ignoreMatches = true
+	}
+}
+
+func ErrorsThreshold(n int) Option {
+	check := func(n int) bool { return !(n > 0) }
+	stopAtError := func(err error) bool {
+		if err == nil {
+			return check(n)
+		}
+		cause, _ := Cause(err)
+		if cause == ErrTooManyErrors {
+			return true
+		}
+		if cause == ErrUnreliableResult {
+			return check(n)
+		}
+		n--
+		return check(n)
+	}
+	return func(p *parser) {
+		if p.stopAtError == nil {
+			p.stopAtError = stopAtError
+		}
 	}
 }
 

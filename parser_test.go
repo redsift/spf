@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
 )
 
@@ -1009,14 +1011,9 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 		err    string
 	}{
 		{"v=spf1 include:loop.matching.net -all", net.IP{10, 0, 0, 1}, Permerror,
-			"error checking 'include:loop.matching.net': " +
-				"error checking 'include:loop1.matching.net': " +
-				"error checking 'include:loop2.matching.net': " +
-				"error checking 'include:loop.matching.net': infinite recursion detected"},
+			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
 		{"v=spf1 redirect=loop.matching.net", net.IP{10, 0, 0, 1}, Permerror,
-			"error checking 'include:loop1.matching.net': " +
-				"error checking 'include:loop2.matching.net': " +
-				"error checking 'include:loop.matching.net': infinite recursion detected"},
+			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
 	}
 
 	for _, test := range tests {
@@ -1267,27 +1264,115 @@ func TestCheckHost_Loops(t *testing.T) {
 			`example.com. 0 IN MX 0 1.1.1.1`,
 		},
 		dns.TypeTXT: {
-			`example.com. 0 IN TXT "v=spf1 a mx include:example.com -all"`,
+			`example.com. 0 IN TXT "v=spf1 a mx include:a.example.com include:b.example.com include:c.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("example.com.")
 
+	dns.HandleFunc("a.example.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`a.example.com. 0 IN TXT "v=spf1 include:a.example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("a.example.com.")
+
+	dns.HandleFunc("b.example.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`b.example.com. 0 IN TXT "v=spf1 include:b.example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("b.example.com.")
+
+	dns.HandleFunc("c.example.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`c.example.com. 0 IN TXT "v=spf1 include:c.example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("c.example.com.")
+
+	dns.HandleFunc("ab.example.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`ab.example.com. 0 IN TXT "v=spf1 include:ba.example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("ab.example.com.")
+
+	dns.HandleFunc("ba.example.com.", zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`ba.example.com. 0 IN TXT "v=spf1 include:ab.example.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("ba.example.com.")
+
 	dns.HandleFunc("mail.example.com.", zone(map[uint16][]string{}))
 	defer dns.HandleRemove("mail.example.com.")
 
-	samples := []struct {
-		d string
-		r Result
-		e error
+	tests := []struct {
+		name string
+		d    string
+		r    Result
+		e    error
+		opts []Option
 	}{
-		{"example.com", Permerror, SyntaxError{&token{tInclude, qPlus, "example.com"}, ErrLoopDetected}},
+		{"normal mode", "ab.example.com", Permerror,
+			SyntaxError{&token{tInclude, qPlus, "ba.example.com"},
+				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected}},
+			[]Option{WithResolver(testResolver)}},
+		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
+		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}
 
 	ip := net.ParseIP("10.0.0.1")
-	for i, s := range samples {
-		r, _, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
-		if r != s.r || fmt.Sprint(e) != fmt.Sprint(s.e) {
-			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d-%s", i, test.name), func(t *testing.T) {
+			r, _, _, e := CheckHost(ip, test.d, test.d, test.opts...)
+			if diff := cmp.Diff(test.r, r); diff != "" {
+				t.Errorf("CheckHost() result differs: (-want +got)\n%s", diff)
+			}
+			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, token{}, errors.New(""))); diff != "" {
+				t.Errorf("CheckHost() errors differs: (-want +got)\n%s", diff)
+			}
+		})
+	}
+}
+
+func deepAllowUnexported(vs ...interface{}) cmp.Option {
+	m := make(map[reflect.Type]struct{})
+	for _, v := range vs {
+		structTypes(reflect.ValueOf(v), m)
+	}
+	var typs []interface{}
+	for t := range m {
+		typs = append(typs, reflect.New(t).Elem().Interface())
+	}
+	return cmp.AllowUnexported(typs...)
+}
+
+func structTypes(v reflect.Value, m map[reflect.Type]struct{}) {
+	if !v.IsValid() {
+		return
+	}
+	switch v.Kind() {
+	case reflect.Ptr:
+		if !v.IsNil() {
+			structTypes(v.Elem(), m)
+		}
+	case reflect.Interface:
+		if !v.IsNil() {
+			structTypes(v.Elem(), m)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			structTypes(v.Index(i), m)
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			structTypes(v.MapIndex(k), m)
+		}
+	case reflect.Struct:
+		m[v.Type()] = struct{}{}
+		for i := 0; i < v.NumField(); i++ {
+			structTypes(v.Field(i), m)
 		}
 	}
 }
