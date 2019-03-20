@@ -19,27 +19,53 @@ func (c CacheDump) MarshalJSON() ([]byte, error) {
 		bb.WriteString("null")
 		return bb.Bytes(), nil
 	}
-
-	bb.WriteByte('[')
-	i := 0
+	longestName := 0
 	for _, v := range c {
-		if i > 0 {
-			bb.WriteByte(',')
-		}
 		msg, ok := v.(*dns.Msg)
 		if !ok {
 			return nil, errors.New("value is not a *dns.Msg")
 		}
+		if len(msg.Question) > 0 && len(msg.Question[0].Name) > longestName {
+			longestName = len(msg.Question[0].Name)
+		}
+	}
+
+	bb.WriteByte('[')
+	bb.WriteByte('\n')
+	i := 0
+	for _, v := range c {
+		if i > 0 {
+			bb.WriteByte(',')
+			bb.WriteByte('\n')
+		}
+		msg, _ := v.(*dns.Msg)
 
 		b, err := msg.Pack()
 		if err != nil {
 			return nil, err
 		}
 
-		bb.WriteRune('"')
+		bb.WriteByte('"')
+		if len(msg.Question) > 0 {
+			bb.WriteByte(';')
+			q := msg.Question[0]
+			bb.WriteString(q.Name)
+			bb.Write(bytes.Repeat([]byte{' '}, longestName-len(q.Name)))
+			bb.WriteByte(' ')
+			bb.WriteString(dns.Class(q.Qclass).String())
+			bb.WriteByte(' ')
+			typ := dns.Type(q.Qtype).String()
+			bb.WriteString(typ)
+			bb.WriteString(`", `)
+			bb.Write(bytes.Repeat([]byte{' '}, 4-len(typ)))
+			bb.WriteByte('"')
+		}
 		bb.WriteString(base64.StdEncoding.EncodeToString(b))
-		bb.WriteRune('"')
+		bb.WriteByte('"')
 		i++
+	}
+	if i > 0 {
+		bb.WriteByte('\n')
 	}
 	bb.WriteByte(']')
 	return bb.Bytes(), nil
@@ -50,14 +76,21 @@ func (c *CacheDump) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	var values [][]byte
+	var values []string
 	if err := json.Unmarshal(b, &values); err != nil {
 		return err
 	}
 	m := make(map[interface{}]interface{})
 	for _, v := range values {
+		if len(v) > 0 && v[0] == ';' {
+			continue
+		}
+		b, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
 		msg := new(dns.Msg)
-		if err := msg.Unpack(v); err != nil {
+		if err := msg.Unpack(b); err != nil {
 			return err
 		}
 		m[msg.Question[0]] = msg
