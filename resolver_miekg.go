@@ -42,7 +42,7 @@ func MiekgDNSClient(c *dns.Client) MiekgDNSResolverOption {
 }
 
 // NewMiekgDNSResolver returns new instance of Resolver with default dns.Client
-func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (Resolver, error) {
+func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (*miekgDNSResolver, error) {
 	if _, _, e := net.SplitHostPort(addr); e != nil {
 		return nil, e
 	}
@@ -79,13 +79,13 @@ func (r *miekgDNSResolver) cachedResponse(req *dns.Msg) (*dns.Msg, bool) {
 
 const maxUint32 = 1<<32 - 1
 
-func (r *miekgDNSResolver) cacheResponse(res *dns.Msg) {
+func (r *miekgDNSResolver) CacheResponse(res *dns.Msg) {
 	if r.cache == nil {
 		return
 	}
 	if len(res.Answer) == 0 {
-		// TODO(dmotylev) get TTL from SOA and limit it between 60s and 3600s
-		r.cache.SetWithExpire(res.Question[0], res, 60*time.Second)
+		// TODO get TTL from SOA and limit it between 60s and 3600s
+		_ = r.cache.SetWithExpire(res.Question[0], res, 60*time.Second)
 		return
 	}
 	var ttl uint32 = maxUint32
@@ -97,7 +97,7 @@ func (r *miekgDNSResolver) cacheResponse(res *dns.Msg) {
 	if ttl == 0 {
 		return
 	}
-	r.cache.SetWithExpire(res.Question[0], res, time.Duration(ttl)*time.Second)
+	_ = r.cache.SetWithExpire(res.Question[0], res, time.Duration(ttl)*time.Second)
 }
 
 // If the DNS lookup returns a server failure (RCODE 2) or some other
@@ -139,7 +139,7 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	if res.Rcode != dns.RcodeSuccess {
 		return nil, ErrDNSTemperror
 	}
-	r.cacheResponse(res)
+	r.CacheResponse(res)
 	return res, nil
 }
 

@@ -3,7 +3,6 @@ package spf
 import (
 	"encoding/json"
 	"reflect"
-
 	"testing"
 
 	"github.com/bluele/gcache"
@@ -36,7 +35,8 @@ func TestCacheDump(t *testing.T) {
 	}
 
 	gc := gcache.New(1).Build()
-	c.UnloadTo(gc)
+	r, _ := NewMiekgDNSResolver("0.0.0.0:0", MiekgDNSCache(gc))
+	c.ForEach(r.CacheResponse)
 
 	if !reflect.DeepEqual(testResolverCache.GetALL(), gc.GetALL()) {
 		t.Error("want equal got different")

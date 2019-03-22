@@ -19,13 +19,12 @@ func ExamplePrinter() {
 	}
 
 	c := gcache.New(100).Build()
-	d.UnloadTo(c)
-
 	// use resolver with cache and no parallelism
 	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
 	if err != nil {
 		log.Fatalf("error creating resolver: %s", err)
 	}
+	d.ForEach(r.CacheResponse)
 
 	// create a printer
 	p := New(os.Stdout, r)

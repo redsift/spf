@@ -6,18 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
 )
 
 type CacheDump map[interface{}]interface{}
 
 func (c CacheDump) MarshalJSON() ([]byte, error) {
-	var bb bytes.Buffer
+	var buf bytes.Buffer
 
 	if c == nil {
-		bb.WriteString("null")
-		return bb.Bytes(), nil
+		buf.WriteString("null")
+		return buf.Bytes(), nil
 	}
 	longestName := 0
 	for _, v := range c {
@@ -30,13 +29,13 @@ func (c CacheDump) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	bb.WriteByte('[')
-	bb.WriteByte('\n')
+	buf.WriteByte('[')
+	buf.WriteByte('\n')
 	i := 0
 	for _, v := range c {
 		if i > 0 {
-			bb.WriteByte(',')
-			bb.WriteByte('\n')
+			buf.WriteByte(',')
+			buf.WriteByte('\n')
 		}
 		msg, _ := v.(*dns.Msg)
 
@@ -45,30 +44,30 @@ func (c CacheDump) MarshalJSON() ([]byte, error) {
 			return nil, err
 		}
 
-		bb.WriteByte('"')
+		buf.WriteByte('"')
 		if len(msg.Question) > 0 {
-			bb.WriteByte(';')
+			buf.WriteByte(';')
 			q := msg.Question[0]
-			bb.WriteString(q.Name)
-			bb.Write(bytes.Repeat([]byte{' '}, longestName-len(q.Name)))
-			bb.WriteByte(' ')
-			bb.WriteString(dns.Class(q.Qclass).String())
-			bb.WriteByte(' ')
+			buf.WriteString(q.Name)
+			buf.Write(bytes.Repeat([]byte{' '}, longestName-len(q.Name)))
+			buf.WriteByte(' ')
+			buf.WriteString(dns.Class(q.Qclass).String())
+			buf.WriteByte(' ')
 			typ := dns.Type(q.Qtype).String()
-			bb.WriteString(typ)
-			bb.WriteString(`", `)
-			bb.Write(bytes.Repeat([]byte{' '}, 4-len(typ)))
-			bb.WriteByte('"')
+			buf.WriteString(typ)
+			buf.WriteString(`", `)
+			buf.Write(bytes.Repeat([]byte{' '}, 4-len(typ)))
+			buf.WriteByte('"')
 		}
-		bb.WriteString(base64.StdEncoding.EncodeToString(b))
-		bb.WriteByte('"')
+		buf.WriteString(base64.StdEncoding.EncodeToString(b))
+		buf.WriteByte('"')
 		i++
 	}
 	if i > 0 {
-		bb.WriteByte('\n')
+		buf.WriteByte('\n')
 	}
-	bb.WriteByte(']')
-	return bb.Bytes(), nil
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
 }
 
 func (c *CacheDump) UnmarshalJSON(b []byte) error {
@@ -99,12 +98,11 @@ func (c *CacheDump) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (c CacheDump) UnloadTo(gc gcache.Cache) {
-	if gc == nil {
+func (c CacheDump) ForEach(f func(*dns.Msg)) {
+	if c == nil {
 		return
 	}
-	r := &miekgDNSResolver{cache: gc}
 	for _, v := range c {
-		r.cacheResponse(v.(*dns.Msg))
+		f(v.(*dns.Msg))
 	}
 }
