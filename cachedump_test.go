@@ -21,7 +21,7 @@ func TestCacheDump(t *testing.T) {
 		t.Error(err)
 	}
 
-	dump := CacheDump(testResolverCache.GetALL())
+	dump := CacheDump(testResolverCache.GetALL(false))
 
 	b, err := json.Marshal(dump)
 	if err != nil {
@@ -38,7 +38,7 @@ func TestCacheDump(t *testing.T) {
 	r, _ := NewMiekgDNSResolver("0.0.0.0:0", MiekgDNSCache(gc))
 	c.ForEach(r.CacheResponse)
 
-	if !reflect.DeepEqual(testResolverCache.GetALL(), gc.GetALL()) {
+	if !reflect.DeepEqual(testResolverCache.GetALL(false), gc.GetALL(false)) {
 		t.Error("want equal got different")
 	}
 }

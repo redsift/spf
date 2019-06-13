@@ -1,11 +1,9 @@
 package spf
 
 import (
-	"testing"
-
-	"time"
-
 	"net"
+	"testing"
+	"time"
 
 	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
@@ -128,13 +126,13 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 		t.Fatal(res, s, err)
 	}
 
-	if len(dnsCache.GetALL()) != 5 {
+	if len(dnsCache.GetALL(true)) != 5 {
 		// google.com.
 		// _spf.google.com.
 		// _netblocks.google.com.
 		// _netblocks2.google.com.
 		// _netblocks3.google.com.
-		for k, v := range dnsCache.GetALL() {
+		for k, v := range dnsCache.GetALL(true) {
 			t.Logf("k=%q, v=%q", k, v.(*dns.Msg).Answer)
 		}
 		t.Fatal("not all requests cached")
