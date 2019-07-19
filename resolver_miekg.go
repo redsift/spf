@@ -37,7 +37,10 @@ func MiekgDNSClient(c *dns.Client) MiekgDNSResolverOption {
 		if c == nil {
 			return
 		}
-		r.client = c
+		if r.dnsClients==nil {
+			r.dnsClients = make(map[string]*dns.Client)
+		}
+		r.dnsClients[c.Net] = c
 	}
 }
 
@@ -47,7 +50,10 @@ func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (*miekgDNS
 		return nil, e
 	}
 	r := &miekgDNSResolver{
-		client:     new(dns.Client),
+		dnsClients: map[string]*dns.Client{
+			"udp": {Net: "udp"},
+			"tcp": {Net: "tcp"},
+		},
 		serverAddr: addr,
 		cache:      nil,
 	}
@@ -60,7 +66,7 @@ func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (*miekgDNS
 // miekgDNSResolver implements Resolver using github.com/miekg/dns
 type miekgDNSResolver struct {
 	mu          sync.Mutex
-	client      *dns.Client
+	dnsClients map[string]*dns.Client
 	cache       gcache.Cache
 	serverAddr  string
 	parallelism int
@@ -122,8 +128,11 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 		err error
 	)
 	for _, n := range []string{"udp", "tcp"} {
-		r.client.Net = n
-		res, _, err = r.client.Exchange(req, r.serverAddr)
+		dnsClient, found := r.dnsClients[n]
+		if !found {
+			continue
+		}
+		res, _, err = dnsClient.Exchange(req, r.serverAddr)
 		if err == nil && res.Truncated {
 			continue
 		}
