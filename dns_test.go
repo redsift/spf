@@ -123,6 +123,10 @@ func TestTruncateFQDN(t *testing.T) {
 			strings.Join([]string{"b", z(247), "com"}, "."), false},
 		{strings.Join([]string{"a", "bb", z(247), "com"}, "."),
 			strings.Join([]string{z(247), "com"}, "."), false},
+		{"net.._l",
+			"", true},
+		{strings.Join([]string{"64dotdot253.com", z(200), "", z(64), "com"}, "."),
+			"", true},
 	}
 
 	const skipAllBut = -1
@@ -133,7 +137,7 @@ func TestTruncateFQDN(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_%s", no, test.fqdn), func(t *testing.T) {
 			got, err := truncateFQDN(test.fqdn)
 			if test.wantErr != (err != nil) {
-				t.Errorf("truncateFQDN(%q) err=%q, wantErr=%t", test.fqdn, err, test.wantErr)
+				t.Errorf("truncateFQDN(%q) err=%v, wantErr=%t", test.fqdn, err, test.wantErr)
 			}
 			if got != test.want {
 				t.Errorf("truncateFQDN(%q) = %q; want %q", test.fqdn, got, test.want)

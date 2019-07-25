@@ -382,14 +382,29 @@ func NormalizeFQDN(name string) string {
 func truncateFQDN(s string) (string, error) {
 	l := len(s)
 	if l < 254 || l == 254 && s[l-1] == '.' {
+		if l == 1 {
+			return s, nil
+		}
+		for i := 1; i < l; i++ {
+			if s[i-1] == '.' && s[i] == '.' {
+				return "", newInvalidDomainError(s)
+			}
+		}
 		return s, nil
 	}
 	dot := -1
 	l = 0
 	i := len(s) - 1
+	labelLen := 0
 	for i >= 0 && l < 253 {
 		if s[i] == '.' {
+			if labelLen == 0 {
+				return "", newInvalidDomainError(s)
+			}
 			dot = i
+			labelLen = 0
+		} else {
+			labelLen++
 		}
 		l++
 		i--
