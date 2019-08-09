@@ -19,26 +19,28 @@ const (
 )
 
 type macro struct {
-	start  int
-	pos    int
-	prev   int
-	length int
-	input  string
-	output []string
-	state  stateFn
-	exp    bool
+	start   int
+	pos     int
+	prev    int
+	length  int
+	input   string
+	output  []string
+	state   stateFn
+	exp     bool
+	pctPos  int
+	partial bool
 }
 
-func newMacro(input string, exp bool) *macro {
-	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp}
+func newMacro(input string, exp bool, partial bool) *macro {
+	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp, 0, partial}
 }
 
 type stateFn func(*macro, *parser) (stateFn, error)
 
 // parseMacro evaluates whole input string and replaces keywords with appropriate
 // values from
-func parseMacro(p *parser, input string, exp bool) (string, error) {
-	m := newMacro(input, exp)
+func parseMacro(p *parser, input string, exp bool, partial bool) (string, error) {
+	m := newMacro(input, exp, partial)
 	var err error
 	for m.state = scanText; m.state != nil; {
 		m.state, err = m.state(m, p)
@@ -54,7 +56,7 @@ func parseMacro(p *parser, input string, exp bool) (string, error) {
 // parseMacroToken evaluates whole input string and replaces keywords with appropriate
 // values from
 func parseMacroToken(p *parser, t *token) (string, error) {
-	return parseMacro(p, t.value, false)
+	return parseMacro(p, t.value, false, p.partialMacros)
 }
 
 // macro.eof() return true when scanned record has ended, false otherwise
@@ -97,6 +99,7 @@ func scanText(m *macro, _ *parser) (stateFn, error) {
 		if r == '%' {
 			// TODO(zaccone): exercise more with peek(),next(), back()
 			m.output = append(m.output, m.input[m.start:m.prev])
+			m.pctPos = m.prev
 			m.moveon()
 			return scanPercent, nil
 		}
@@ -115,11 +118,23 @@ func scanPercent(m *macro, _ *parser) (stateFn, error) {
 		m.moveon()
 		return scanMacro, nil
 	case '%':
-		m.output = append(m.output, "%")
+		if m.partial {
+			m.collect("%%")
+		} else {
+			m.collect("%")
+		}
 	case '_':
-		m.output = append(m.output, " ")
+		if m.partial {
+			m.collect("%_")
+		} else {
+			m.collect(" ")
+		}
 	case '-':
-		m.output = append(m.output, "%20")
+		if m.partial {
+			m.collect("%-")
+		} else {
+			m.collect("%20")
+		}
 	default:
 		return nil, fmt.Errorf("forbidden character (%v) after %%", r)
 	}
@@ -158,8 +173,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'l', 'L':
 		email = parseAddrSpec(p.sender, p.sender)
@@ -169,8 +182,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'o', 'O':
 		email = parseAddrSpec(p.sender, p.sender)
@@ -180,8 +191,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'h', 'H':
 		curItem = item{p.heloDomain, negative, delimiter, false}
@@ -190,8 +199,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'd', 'D':
 		curItem = item{p.domain, negative, delimiter, false}
@@ -200,8 +207,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'i', 'I':
 		curItem = item{toDottedHex(p.ip), negative, delimiter, false}
@@ -210,8 +215,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'p', 'P':
 		// let's not use it for the moment, RFC doesn't recommend it.
@@ -219,11 +222,10 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	case 'v', 'V':
 		// TODO(zaccone): move such functions to some generic utils module
 		if p.ip.To4() == nil {
-			m.output = append(m.output, "ip6")
+			result = "ip6"
 		} else {
-			m.output = append(m.output, "in-addr")
+			result = "in-addr"
 		}
-		m.moveon()
 
 	case 'c', 'C':
 		if !m.exp {
@@ -235,8 +237,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 'r', 'R':
 		if !m.exp {
@@ -248,8 +248,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 
 	case 't', 'T':
 		if !m.exp {
@@ -261,8 +259,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		m.output = append(m.output, result)
-		m.moveon()
 	}
 
 	r, err = m.next()
@@ -274,8 +270,28 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		return nil, fmt.Errorf("unexpected char '%v', expected '}'", r)
 	}
 
+	if m.partial {
+		if result != "" {
+			m.collect(result)
+			m.moveon()
+		} else {
+			m.collectMacroBody()
+		}
+	} else {
+		m.collect(result)
+		m.moveon()
+	}
+
 	m.moveon()
 	return scanText, nil
+}
+
+func (m *macro) collect(result string) {
+	m.output = append(m.output, result)
+}
+
+func (m *macro) collectMacroBody() {
+	m.output = append(m.output, m.input[m.pctPos:m.pos])
 }
 
 func toDottedHex(ip net.IP) string {

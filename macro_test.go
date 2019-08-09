@@ -137,6 +137,36 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 	}
 }
 
+func TestMacroExpansion_partial(t *testing.T) {
+	testCases := []*MacroTest{
+		{"%{h}.%{d}", "%{h}.email.example.com"},
+		{"%{h}.%{dr}", "%{h}.com.example.email"},
+		{"prefix.%{h}.%{d}", "prefix.%{h}.email.example.com"},
+		{"%{h}.%{d}.postfix", "%{h}.email.example.com.postfix"},
+		{"%{h}.main.%{d}", "%{h}.main.email.example.com"},
+		{"%{h}.%%.%{d}", "%{h}.%%.email.example.com"},
+		{"%{h}.%_.%{d}", "%{h}.%_.email.example.com"},
+		{"%{h}.%-.%{d}", "%{h}.%-.email.example.com"},
+	}
+
+	parser := newParser(WithResolver(testResolver), PartialMacros(true)).
+		with(stub, "strong-bad@email.example.com", "email.example.com", net.IP{192, 0, 2, 3})
+
+	for _, test := range testCases {
+
+		tkn.value = test.Input
+		result, err := parseMacroToken(parser, tkn)
+		if err != nil {
+			t.Errorf("Macro %s evaluation failed due to returned error: %v\n",
+				test.Input, err)
+		}
+		if result != test.Output {
+			t.Errorf("Macro '%s', evaluation failed, got: '%s',\nexpected '%s'\n",
+				test.Input, result, test.Output)
+		}
+	}
+}
+
 // TODO(zaccone): Fill epected error messages and compare with those returned.
 func TestParsingErrors(t *testing.T) {
 	testcases := []*MacroTest{
@@ -256,17 +286,19 @@ func TestMacro_Domains(t *testing.T) {
 		want          Result
 		wantExp       string
 		wantErr       bool
+		partial       bool
 	}{
-		{"v=spf1 include:a.test -all", "", "", Pass, "", false},
-		{"v=spf1 include:b.test -all", "", "", Pass, "", false},
-		{"v=spf1 include:c.test -all", "positive.test", "", Pass, "", false},
-		{"v=spf1 -all exp=c.explain.test", "positive.test", "", Fail, "1000::1", false},
-		{"v=spf1 -all exp=r.explain.test", "positive.test", "example.com", Fail, "example.com", false},
-		{"v=spf1 -all exp=t.explain.test", "positive.test", "", Fail, "1", false},
-		{"v=spf1 -all exp=r.explain.test", "positive.test", "", Fail, "unknown", false},
-		{"v=spf1 include:%{c}", "positive.test", "", Permerror, "", true},
-		{"v=spf1 include:%{r}", "positive.test", "", Permerror, "", true},
-		{"v=spf1 include:%{t}", "positive.test", "", Permerror, "", true},
+		{"v=spf1 include:a.test -all", "", "", Pass, "", false, false},
+		{"v=spf1 include:b.test -all", "", "", Pass, "", false, false},
+		{"v=spf1 include:c.test -all", "positive.test", "", Pass, "", false, false},
+		{"v=spf1 -all exp=c.explain.test", "positive.test", "", Fail, "1000::1", false, false},
+		{"v=spf1 -all exp=r.explain.test", "positive.test", "example.com", Fail, "example.com", false, false},
+		{"v=spf1 -all exp=t.explain.test", "positive.test", "", Fail, "1", false, false},
+		{"v=spf1 -all exp=r.explain.test", "positive.test", "", Fail, "unknown", false, false},
+		{"v=spf1 include:%{c}", "positive.test", "", Permerror, "", true, false},
+		{"v=spf1 include:%{r}", "positive.test", "", Permerror, "", true, false},
+		{"v=spf1 include:%{t}", "positive.test", "", Permerror, "", true, false},
+		{"v=spf1 include:a.test -all", "", "", Pass, "", false, true},
 	}
 
 	const skipAllBut = -1
