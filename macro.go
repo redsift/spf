@@ -19,28 +19,27 @@ const (
 )
 
 type macro struct {
-	start   int
-	pos     int
-	prev    int
-	length  int
-	input   string
-	output  []string
-	state   stateFn
-	exp     bool
-	pctPos  int
-	partial bool
+	start  int
+	pos    int
+	prev   int
+	length int
+	input  string
+	output []string
+	state  stateFn
+	exp    bool
+	pctPos int
 }
 
-func newMacro(input string, exp bool, partial bool) *macro {
-	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp, 0, partial}
+func newMacro(input string, exp bool) *macro {
+	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp, 0}
 }
 
 type stateFn func(*macro, *parser) (stateFn, error)
 
 // parseMacro evaluates whole input string and replaces keywords with appropriate
 // values from
-func parseMacro(p *parser, input string, exp bool, partial bool) (string, error) {
-	m := newMacro(input, exp, partial)
+func parseMacro(p *parser, input string, exp bool) (string, error) {
+	m := newMacro(input, exp)
 	var err error
 	for m.state = scanText; m.state != nil; {
 		m.state, err = m.state(m, p)
@@ -56,7 +55,7 @@ func parseMacro(p *parser, input string, exp bool, partial bool) (string, error)
 // parseMacroToken evaluates whole input string and replaces keywords with appropriate
 // values from
 func parseMacroToken(p *parser, t *token) (string, error) {
-	return parseMacro(p, t.value, false, p.partialMacros)
+	return parseMacro(p, t.value, false)
 }
 
 // macro.eof() return true when scanned record has ended, false otherwise
@@ -108,7 +107,7 @@ func scanText(m *macro, _ *parser) (stateFn, error) {
 	return nil, nil
 }
 
-func scanPercent(m *macro, _ *parser) (stateFn, error) {
+func scanPercent(m *macro, p *parser) (stateFn, error) {
 	r, err := m.next()
 	if err != nil {
 		return nil, err
@@ -118,19 +117,19 @@ func scanPercent(m *macro, _ *parser) (stateFn, error) {
 		m.moveon()
 		return scanMacro, nil
 	case '%':
-		if m.partial {
+		if p.partialMacros {
 			m.collect("%%")
 		} else {
 			m.collect("%")
 		}
 	case '_':
-		if m.partial {
+		if p.partialMacros {
 			m.collect("%_")
 		} else {
 			m.collect(" ")
 		}
 	case '-':
-		if m.partial {
+		if p.partialMacros {
 			m.collect("%-")
 		} else {
 			m.collect("%20")
@@ -185,7 +184,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	case 'o', 'O':
 		email = parseAddrSpec(p.sender, p.sender)
-		curItem = item{email.domain, negative, delimiter, false}
+		curItem = item{removeRoot(email.domain), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -193,7 +192,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		}
 
 	case 'h', 'H':
-		curItem = item{p.heloDomain, negative, delimiter, false}
+		curItem = item{removeRoot(p.heloDomain), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -201,7 +200,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		}
 
 	case 'd', 'D':
-		curItem = item{p.domain, negative, delimiter, false}
+		curItem = item{removeRoot(p.domain), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -209,7 +208,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		}
 
 	case 'i', 'I':
-		curItem = item{toDottedHex(p.ip), negative, delimiter, false}
+		curItem = item{toDottedHex(p.ip, p.partialMacros), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -221,10 +220,12 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	case 'v', 'V':
 		// TODO(zaccone): move such functions to some generic utils module
-		if p.ip.To4() == nil {
-			result = "ip6"
-		} else {
-			result = "in-addr"
+		if !p.partialMacros {
+			if p.ip.To4() == nil {
+				result = "ip6"
+			} else {
+				result = "in-addr"
+			}
 		}
 
 	case 'c', 'C':
@@ -270,7 +271,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		return nil, fmt.Errorf("unexpected char '%v', expected '}'", r)
 	}
 
-	if m.partial {
+	if p.partialMacros {
 		if result != "" {
 			m.collect(result)
 			m.moveon()
@@ -294,9 +295,16 @@ func (m *macro) collectMacroBody() {
 	m.output = append(m.output, m.input[m.pctPos:m.pos])
 }
 
-func toDottedHex(ip net.IP) string {
-	if len(ip) == net.IPv4len {
+func toDottedHex(ip net.IP, partial bool) string {
+	if ip4 := ip.To4(); ip4 != nil {
+		if partial && ip.Equal(net.IPv4zero) {
+			return ""
+		}
 		return ip.String()
+	}
+
+	if partial && ip.Equal(net.IPv6zero) {
+		return ""
 	}
 
 	const maxLen = len("ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff.ff")
@@ -422,4 +430,12 @@ func parseDelimiter(m *macro, curItem *item) (string, error) {
 		curItem.cardinality = len(parts)
 	}
 	return strings.Join(parts[len(parts)-curItem.cardinality:], "."), nil
+}
+
+func removeRoot(d string) string {
+	l := len(d)
+	if l > 0 && d[l-1] == '.' {
+		return d[0 : l-1]
+	}
+	return d
 }

@@ -440,7 +440,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 func (p *parser) parseA(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false, false)
+		fqdn, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -475,7 +475,7 @@ func (p *parser) parseA(t *token) (bool, Result, error) {
 func (p *parser) parseMX(t *token) (bool, Result, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false, false)
+		fqdn, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -510,7 +510,7 @@ func (p *parser) parseMX(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain, err := parseMacro(p, t.value, false, false)
+	domain, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -609,7 +609,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		result Result
 	)
 
-	domain, err := parseMacro(p, t.value, false, false)
+	domain, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -654,7 +654,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 
 	// RFC 7208, section 6.2 specifies that result strings should be
 	// concatenated with no spaces.
-	exp, err := parseMacro(p, strings.Join(txts, ""), true, false)
+	exp, err := parseMacro(p, strings.Join(txts, ""), true)
 	if err != nil {
 		return "", SyntaxError{t, err}
 	}
