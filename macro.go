@@ -84,7 +84,7 @@ func (m *macro) back() { m.pos = m.prev }
 
 // State functions
 
-func scanText(m *macro, _ *parser) (stateFn, error) {
+func scanText(m *macro, p *parser) (stateFn, error) {
 	for {
 
 		r, err := m.next()
@@ -100,6 +100,9 @@ func scanText(m *macro, _ *parser) (stateFn, error) {
 			m.output = append(m.output, m.input[m.start:m.prev])
 			m.pctPos = m.prev
 			m.moveon()
+			if p.partialMacros {
+				return scanPercentPartial, nil
+			}
 			return scanPercent, nil
 		}
 
@@ -107,7 +110,30 @@ func scanText(m *macro, _ *parser) (stateFn, error) {
 	return nil, nil
 }
 
-func scanPercent(m *macro, p *parser) (stateFn, error) {
+func scanPercentPartial(m *macro, _ *parser) (stateFn, error) {
+	r, err := m.next()
+	if err != nil {
+		return nil, err
+	}
+	switch r {
+	case '{':
+		m.moveon()
+		return scanMacroPartial, nil
+	case '%':
+		m.collect("%%")
+	case '_':
+		m.collect("%_")
+	case '-':
+		m.collect("%-")
+	default:
+		return nil, fmt.Errorf("forbidden character (%v) after %%", r)
+	}
+
+	m.moveon()
+	return scanText, nil
+}
+
+func scanPercent(m *macro, _ *parser) (stateFn, error) {
 	r, err := m.next()
 	if err != nil {
 		return nil, err
@@ -117,23 +143,11 @@ func scanPercent(m *macro, p *parser) (stateFn, error) {
 		m.moveon()
 		return scanMacro, nil
 	case '%':
-		if p.partialMacros {
-			m.collect("%%")
-		} else {
-			m.collect("%")
-		}
+		m.collect("%")
 	case '_':
-		if p.partialMacros {
-			m.collect("%_")
-		} else {
-			m.collect(" ")
-		}
+		m.collect(" ")
 	case '-':
-		if p.partialMacros {
-			m.collect("%-")
-		} else {
-			m.collect("%20")
-		}
+		m.collect("%20")
 	default:
 		return nil, fmt.Errorf("forbidden character (%v) after %%", r)
 	}
@@ -149,6 +163,72 @@ type item struct {
 	reversed    bool
 }
 
+func errInvalidMacroSyntax(e error) (stateFn, error) {
+	return nil, fmt.Errorf("wrong macro syntax: %s", e.Error())
+}
+
+func scanMacroPartial(m *macro, p *parser) (stateFn, error) {
+	r, err := m.next()
+	if err != nil {
+		return nil, err
+	}
+	var curItem item
+
+	//var err error
+	var result string
+
+	switch r {
+	case 's', 'S':
+		fallthrough
+	case 'l', 'L':
+		fallthrough
+	case 'o', 'O':
+		fallthrough
+	case 'h', 'H':
+		fallthrough
+	case 'i', 'I':
+		fallthrough
+	case 'c', 'C':
+		fallthrough
+	case 'r', 'R':
+		fallthrough
+	case 't', 'T':
+		m.moveon()
+		if err := skipMacroBody(m); err != nil {
+			return errInvalidMacroSyntax(err)
+		}
+
+	case 'd', 'D':
+		curItem = item{removeRoot(p.domain), negative, delimiter, false}
+		m.moveon()
+		result, err = parseDelimiter(m, &curItem)
+		if err != nil {
+			return errInvalidMacroSyntax(err)
+		}
+
+	case 'p', 'P':
+	case 'v', 'V':
+	}
+
+	if r, err = m.next(); err != nil {
+		// macro not ended properly, handle error here
+		return nil, err
+	} else if r != '}' {
+		// macro not ended properly, handle error here
+		return nil, fmt.Errorf("unexpected char '%v', expected '}'", r)
+	}
+
+	if result != "" {
+		m.collect(result)
+		m.moveon()
+	} else {
+		m.collectMacroBody()
+	}
+
+	m.moveon()
+	return scanText, nil
+}
+
 func scanMacro(m *macro, p *parser) (stateFn, error) {
 	r, err := m.next()
 	if err != nil {
@@ -159,10 +239,6 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	//var err error
 	var result string
 	var email *addrSpec
-
-	errInvalidMacroSyntax := func(e error) (stateFn, error) {
-		return nil, fmt.Errorf("wrong macro syntax: %s", e.Error())
-	}
 
 	switch r {
 	case 's', 'S':
@@ -208,7 +284,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		}
 
 	case 'i', 'I':
-		curItem = item{toDottedHex(p.ip, p.partialMacros), negative, delimiter, false}
+		curItem = item{toDottedHex(p.ip, false), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
@@ -220,12 +296,10 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 	case 'v', 'V':
 		// TODO(zaccone): move such functions to some generic utils module
-		if !p.partialMacros {
-			if p.ip.To4() == nil {
-				result = "ip6"
-			} else {
-				result = "in-addr"
-			}
+		if p.ip.To4() == nil {
+			result = "ip6"
+		} else {
+			result = "in-addr"
 		}
 
 	case 'c', 'C':
@@ -271,17 +345,8 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		return nil, fmt.Errorf("unexpected char '%v', expected '}'", r)
 	}
 
-	if p.partialMacros {
-		if result != "" {
-			m.collect(result)
-			m.moveon()
-		} else {
-			m.collectMacroBody()
-		}
-	} else {
-		m.collect(result)
-		m.moveon()
-	}
+	m.collect(result)
+	m.moveon()
 
 	m.moveon()
 	return scanText, nil
@@ -336,15 +401,62 @@ func appendHex(dst []byte, i byte) []byte {
 	return dst
 }
 
-func parseDelimiter(m *macro, curItem *item) (string, error) {
-	// ismacroDelimiter is a private function that returns true if the rune is
-	// a macro delimiter.
-	// It's important to ephasize delimiters defined in RFC 7208 section 7.1,
-	// hence separate function for this.
-	isMacroDelimiter := func(ch rune) bool {
-		return strings.ContainsRune(".-+,/_=", ch)
+// ismacroDelimiter is a private function that returns true if the rune is
+// a macro delimiter.
+// It's important to ephasize delimiters defined in RFC 7208 section 7.1,
+// hence separate function for this.
+func isMacroDelimiter(ch rune) bool {
+	return strings.ContainsRune(".-+,/_=", ch)
+}
+
+func skipMacroBody(m *macro) error {
+	var (
+		r   rune
+		err error
+	)
+	if r, err = m.next(); err != nil {
+		return err
 	}
 
+	if isDigit(r) {
+		m.back()
+		for {
+			if r, err = m.next(); err != nil {
+				return err
+			}
+
+			if !isDigit(r) {
+				m.back()
+				break
+			}
+		}
+
+		if r, err = m.next(); err != nil {
+			return err
+		}
+	}
+
+	if r == 'r' || r == 'R' {
+		if r, err = m.next(); err != nil {
+			return err
+		}
+	}
+	if isMacroDelimiter(r) {
+		if r, err = m.next(); err != nil {
+			return err
+		}
+	}
+	if r != '}' {
+		// syntax error
+		return fmt.Errorf("unexpected char (%v), expected '}'", r)
+	}
+
+	m.back()
+
+	return nil
+}
+
+func parseDelimiter(m *macro, curItem *item) (string, error) {
 	var (
 		r   rune
 		err error

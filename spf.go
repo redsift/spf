@@ -83,9 +83,8 @@ type Resolver interface {
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF
 type Option func(*parser)
 
-// PartialMacros triggers partial macro expansion when macro is expanded
-// only if its corresponding value is not empty.
-// Escaped symbols like '%%,%-,%_' are not expanded.
+// PartialMacros triggers partial macro expansion. Currently it expands only %{d} with provided domain, if not empty.
+// Otherwise it keeps macro body. Escaped symbols like '%%,%-,%_' are not expanded.
 func PartialMacros(v bool) Option {
 	return func(p *parser) {
 		p.partialMacros = v
