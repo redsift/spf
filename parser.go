@@ -514,6 +514,9 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
+	if err == nil && !isDomainName(domain) {
+		err = newInvalidDomainError(domain)
+	}
 	domain = NormalizeFQDN(domain)
 	p.fireDirective(t, domain)
 	if err != nil {
@@ -572,6 +575,9 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 	if err == nil {
 		resolvedDomain, err = truncateFQDN(resolvedDomain)
 	}
+	if err == nil && !isDomainName(resolvedDomain) {
+		err = newInvalidDomainError(resolvedDomain)
+	}
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
@@ -613,6 +619,9 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
+	if err == nil && !isDomainName(domain) {
+		err = newInvalidDomainError(domain)
+	}
 	redirectDomain := NormalizeFQDN(domain)
 
 	p.fireDirective(t, redirectDomain)
@@ -646,6 +655,9 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 	if err != nil {
 		return "", SyntaxError{t, err}
 	}
+	if !isDomainName(domain) {
+		return "", SyntaxError{t, newInvalidDomainError(domain)}
+	}
 
 	txts, err := p.resolver.LookupTXT(NormalizeFQDN(domain))
 	if err != nil {
@@ -654,6 +666,10 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 
 	// RFC 7208, section 6.2 specifies that result strings should be
 	// concatenated with no spaces.
+	// TODO URL escaping MUST be performed for characters
+	//  not in the "unreserved" set, which is defined in [RFC3986].
+	//  https://tools.ietf.org/html/rfc7208#section-7.3
+	//  looks like we need to do it after truncating
 	exp, err := parseMacro(p, strings.Join(txts, ""), true)
 	if err != nil {
 		return "", SyntaxError{t, err}

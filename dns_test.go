@@ -88,6 +88,7 @@ func TestIsDomainName(t *testing.T) {
 		{strings.Join([]string{"253", z(53), z(63), z(63), z(63), "com"}, "."), true},
 		{strings.Join([]string{"254", z(54), z(63), z(63), z(63), "com"}, "."), false},
 		{strings.Join([]string{"254dot", z(50), z(63), z(63), z(63), "com."}, "."), true},
+		{"_i.%{i}._o.%{o}._d.s77342792.fdmarc.net._l.%{l}._h.%{h}._f.77342792.7.4.fdmarc.net.", false},
 	}
 
 	const skipAllBut = -1
