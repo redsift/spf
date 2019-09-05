@@ -12,6 +12,24 @@ import (
 )
 
 func ExamplePrinter() {
+	var dump = []byte(`[
+		";aspmx2.googlemail.com.   IN AAAA", "tZyBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQKgAUUEAQDAUAAAAAAAAAGw==",
+		";alt2.aspmx.l.google.com. IN A",    "rgaBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAASQABEp9yBo=",
+		";alt1.aspmx.l.google.com. IN A",    "t8eBgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAAJgABEDpoRo=",
+		";spf.mailjet.com.         IN TXT",  "HUKBgAABAAEAAAAAA3NwZgdtYWlsamV0A2NvbQAAEAABA3NwZgdtYWlsamV0A2NvbQAAEAABAAAF0wCZmHY9c3BmMSBpcDQ6MTc4LjMzLjExMS4xNDQgaXA0OjE3OC4zMy4xMzcuMjA4LzI4IGlwNDoxNzguMzMuMjIxLjAvMjQgaXA0OjM3LjU5LjY5LjEyOC8yNSBpcDQ6MzcuNTkuMjQ5LjAvMjQgaXA0Ojg3LjI1My4yMzIuMC8yMSBpcDQ6MTg1LjE4OS4yMzYuMC8yMiA/YWxs",
+		";servers.mcsv.net.        IN TXT",  "xruBgAABAAEAAAAAB3NlcnZlcnMEbWNzdgNuZXQAABAAAQdzZXJ2ZXJzBG1jc3YDbmV0AAAQAAEAAACYAEdGdj1zcGYxIGlwNDoyMDUuMjAxLjEyOC4wLzIwIGlwNDoxOTguMi4xMjguMC8xOCBpcDQ6MTQ4LjEwNS44LjAvMjEgP2FsbA==",
+		";alt2.aspmx.l.google.com. IN AAAA", "duCBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAAcAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AABwAAQAAASQAECQEaABAAwwAAAAAAAAAABo=",
+		";blocket.se.              IN MX",   "sMSBgAABAAUAAAAAB2Jsb2NrZXQCc2UAAA8AAQdibG9ja2V0AnNlAAAPAAEAAAG7ABkAHgZhc3BteDMKZ29vZ2xlbWFpbANjb20AB2Jsb2NrZXQCc2UAAA8AAQAAAbsAGwAUBGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAdibG9ja2V0AnNlAAAPAAEAAAG7ABsAFARhbHQyBWFzcG14AWwGZ29vZ2xlA2NvbQAHYmxvY2tldAJzZQAADwABAAABuwAZAB4GYXNwbXgyCmdvb2dsZW1haWwDY29tAAdibG9ja2V0AnNlAAAPAAEAAAG7ABYACgVhc3BteAFsBmdvb2dsZQNjb20A",
+		";aspmx.l.google.com.      IN AAAA", "ul2BgAABAAEAAAAABWFzcG14AWwGZ29vZ2xlA2NvbQAAHAABBWFzcG14AWwGZ29vZ2xlA2NvbQAAHAABAAABJAAQKgAUUEAMDAsAAAAAAAAAGw==",
+		";aspmx.l.google.com.      IN A",    "IG+BgAABAAEAAAAABWFzcG14AWwGZ29vZ2xlA2NvbQAAAQABBWFzcG14AWwGZ29vZ2xlA2NvbQAAAQABAAABJAAEQOm4Gg==",
+		";alt1.aspmx.l.google.com. IN AAAA", "Pp2BgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAAcAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AABwAAQAAASQAECoAFFBAEAwFAAAAAAAAABo=",
+		";aspmx2.googlemail.com.   IN A",    "hJGBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAAQABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAAQABAAAAzQAEQOmhGw==",
+		";aspmx3.googlemail.com.   IN AAAA", "3H2BgAABAAEAAAAABmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQJARoAEADDAAAAAAAAAAAGg==",
+		";subito.it.               IN TXT",  "R0aBgAABAAIAAAAABnN1Yml0bwJpdAAAEAABBnN1Yml0bwJpdAAAEAABAAABDQGr/3Y9c3BmMSBteDpibG9ja2V0LnNlIGluY2x1ZGU6c3BmLm1haWxqZXQuY29tIGluY2x1ZGU6c2VydmVycy5tY3N2Lm5ldCBpcDQ6MTA5LjE2OC4xMjcuMTYwLzI3IGlwNDoyMTIuMzEuMjUyLjY0LzI3IGlwNDoyMTIuNzcuNjguNiBpcDQ6NjIuMjEyLjEuMTYwIGlwNDo2Mi4yMTIuMC4xNjAgaXA0OjkzLjk0LjMyLjAvMjEgaXA0OjkzLjk0LjM3LjI1MyBpcDQ6MTA5LjE2OC4xMjEuNDgvMjggaXA0OjM3LjIwMi4yMC4yMy8zMiBpcDQ6MjEzLjIxNS4xNaoyLjI1NC8zMiBpcDQ6MjEzLjIxNS4xNTIuMjUzLzMyIGlwNDoyMTMuMjE1LjE1Mi4yNTIvMzIgaXA0OjIxMy4yMTUuMTUyLjI1MS8zMiBpcDQ6MTA5LjE2OC4xMjEuNTQvMzIgaXA0OjEwOS4xNjguMTIxLjU1LzMyIGlwNDoxMDkuMTY4LjEyMS41Ny8zMiBpcDQ6MTA5LjE2OC4xMjEuNTgvMzIgLWFsbAZzdWJpdG8CaXQAABAAAQAAAQ0ARURnb29nbGUtc2l0ZS12ZXJpZmljYXRpb249NXZqME5OR2FXZGtDaUJCd01EcUF5WE90aWsxejR1SF9Wc0dKbDNfY3djOA==",
+		";ptr.test.redsift.io.     IN TXT",  "O7yBgAABAAEAAAAAA3B0cgR0ZXN0B3JlZHNpZnQCaW8AABAAAQNwdHIEdGVzdAdyZWRzaWZ0AmlvAAAQAAEAAAErABAPdj1zcGYxIHB0ciB+YWxs",
+		";aspmx3.googlemail.com.   IN A",    "j2WBgAABAAEAAAAABmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAAQABBmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAAQABAAABJAAESn3IGg=="
+		]`)
+
 	// fill dns cache
 	var d spf.CacheDump
 	if err := json.Unmarshal(dump, &d); err != nil {
@@ -115,20 +133,63 @@ func ExamplePrinter() {
 	// ## of lookups: 13
 }
 
-var dump = []byte(`[
-"HUKBgAABAAEAAAAAA3NwZgdtYWlsamV0A2NvbQAAEAABA3NwZgdtYWlsamV0A2NvbQAAEAABAAAF0wCZmHY9c3BmMSBpcDQ6MTc4LjMzLjExMS4xNDQgaXA0OjE3OC4zMy4xMzcuMjA4LzI4IGlwNDoxNzguMzMuMjIxLjAvMjQgaXA0OjM3LjU5LjY5LjEyOC8yNSBpcDQ6MzcuNTkuMjQ5LjAvMjQgaXA0Ojg3LjI1My4yMzIuMC8yMSBpcDQ6MTg1LjE4OS4yMzYuMC8yMiA/YWxs",
-"ul2BgAABAAEAAAAABWFzcG14AWwGZ29vZ2xlA2NvbQAAHAABBWFzcG14AWwGZ29vZ2xlA2NvbQAAHAABAAABJAAQKgAUUEAMDAsAAAAAAAAAGw==",
-"duCBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAAcAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AABwAAQAAASQAECQEaABAAwwAAAAAAAAAABo=",
-"O7yBgAABAAEAAAAAA3B0cgR0ZXN0B3JlZHNpZnQCaW8AABAAAQNwdHIEdGVzdAdyZWRzaWZ0AmlvAAAQAAEAAAErABAPdj1zcGYxIHB0ciB+YWxs",
-"j2WBgAABAAEAAAAABmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAAQABBmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAAQABAAABJAAESn3IGg==",
-"t8eBgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAAJgABEDpoRo=",
-"sMSBgAABAAUAAAAAB2Jsb2NrZXQCc2UAAA8AAQdibG9ja2V0AnNlAAAPAAEAAAG7ABkAHgZhc3BteDMKZ29vZ2xlbWFpbANjb20AB2Jsb2NrZXQCc2UAAA8AAQAAAbsAGwAUBGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAdibG9ja2V0AnNlAAAPAAEAAAG7ABsAFARhbHQyBWFzcG14AWwGZ29vZ2xlA2NvbQAHYmxvY2tldAJzZQAADwABAAABuwAZAB4GYXNwbXgyCmdvb2dsZW1haWwDY29tAAdibG9ja2V0AnNlAAAPAAEAAAG7ABYACgVhc3BteAFsBmdvb2dsZQNjb20A",
-"Pp2BgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAAcAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AABwAAQAAASQAECoAFFBAEAwFAAAAAAAAABo=",
-"rgaBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAASQABEp9yBo=",
-"tZyBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQKgAUUEAQDAUAAAAAAAAAGw==",
-"hJGBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAAQABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAAQABAAAAzQAEQOmhGw==",
-"R0aBgAABAAIAAAAABnN1Yml0bwJpdAAAEAABBnN1Yml0bwJpdAAAEAABAAABDQGr/3Y9c3BmMSBteDpibG9ja2V0LnNlIGluY2x1ZGU6c3BmLm1haWxqZXQuY29tIGluY2x1ZGU6c2VydmVycy5tY3N2Lm5ldCBpcDQ6MTA5LjE2OC4xMjcuMTYwLzI3IGlwNDoyMTIuMzEuMjUyLjY0LzI3IGlwNDoyMTIuNzcuNjguNiBpcDQ6NjIuMjEyLjEuMTYwIGlwNDo2Mi4yMTIuMC4xNjAgaXA0OjkzLjk0LjMyLjAvMjEgaXA0OjkzLjk0LjM3LjI1MyBpcDQ6MTA5LjE2OC4xMjEuNDgvMjggaXA0OjM3LjIwMi4yMC4yMy8zMiBpcDQ6MjEzLjIxNS4xNaoyLjI1NC8zMiBpcDQ6MjEzLjIxNS4xNTIuMjUzLzMyIGlwNDoyMTMuMjE1LjE1Mi4yNTIvMzIgaXA0OjIxMy4yMTUuMTUyLjI1MS8zMiBpcDQ6MTA5LjE2OC4xMjEuNTQvMzIgaXA0OjEwOS4xNjguMTIxLjU1LzMyIGlwNDoxMDkuMTY4LjEyMS41Ny8zMiBpcDQ6MTA5LjE2OC4xMjEuNTgvMzIgLWFsbAZzdWJpdG8CaXQAABAAAQAAAQ0ARURnb29nbGUtc2l0ZS12ZXJpZmljYXRpb249NXZqME5OR2FXZGtDaUJCd01EcUF5WE90aWsxejR1SF9Wc0dKbDNfY3djOA==",
-"IG+BgAABAAEAAAAABWFzcG14AWwGZ29vZ2xlA2NvbQAAAQABBWFzcG14AWwGZ29vZ2xlA2NvbQAAAQABAAABJAAEQOm4Gg==",
-"3H2BgAABAAEAAAAABmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mwpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQJARoAEADDAAAAAAAAAAAGg==",
-"xruBgAABAAEAAAAAB3NlcnZlcnMEbWNzdgNuZXQAABAAAQdzZXJ2ZXJzBG1jc3YDbmV0AAAQAAEAAACYAEdGdj1zcGYxIGlwNDoyMDUuMjAxLjEyOC4wLzIwIGlwNDoxOTguMi4xMjguMC8xOCBpcDQ6MTQ4LjEwNS44LjAvMjEgP2FsbA=="
-]`)
+//b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()
+//println(string(b))
+
+func ExamplePrinter_ipv6nil() {
+	var dump = []byte(`[
+		";_spf.q4press.com. IN TXT",  "FM+BgAABAAEAAAAABF9zcGYHcTRwcmVzcwNjb20AABAAAQRfc3BmB3E0cHJlc3MDY29tAAAQAAEAAAznAB4ddj1zcGYxIGE6d2ViLnE0cHJlc3MuY29tIC1hbGw=",
+		";web.q4press.com.  IN AAAA", "USGBgAABAAEAAQAAA3dlYgdxNHByZXNzA2NvbQAAHAABA3dlYgdxNHByZXNzA2NvbQAABQABAABScQANB3E0cHJlc3MDY29tAAdxNHByZXNzA2NvbQAABgABAAADKwBIBm5zLTU3Mwlhd3NkbnMtMDcDbmV0ABFhd3NkbnMtaG9zdG1hc3RlcgZhbWF6b24DY29tAHga7IoAABwgAAADhAASdQAAAAEs",
+		";q4press.com.      IN TXT",  "xPiBgAABAAIAAAAAB3E0cHJlc3MDY29tAAAQAAEHcTRwcmVzcwNjb20AABAAAQAAADsARURnb29nbGUtc2l0ZS12ZXJpZmljYXRpb249TjRTcU1hMjVVbHRVZjdlNnVBYm1jT2ttOUpCX0FidEw2Q245bjM5eFdRVQdxNHByZXNzA2NvbQAAEAABAAAAOwAlJHY9c3BmMSBpbmNsdWRlOl9zcGYucTRwcmVzcy5jb20gfmFsbA==",
+		";web.q4press.com.  IN A",    "2caBgAABAAcAAAAAA3dlYgdxNHByZXNzA2NvbQAAAQABA3dlYgdxNHByZXNzA2NvbQAABQABAABUVwANB3E0cHJlc3MDY29tAAdxNHByZXNzA2NvbQAAAQABAAAAMwAEkhRbmQdxNHByZXNzA2NvbQAAAQABAAAAMwAEkhRbmAdxNHByZXNzA2NvbQAAAQABAAAAMwAEA9BKrAdxNHByZXNzA2NvbQAAAQABAAAAMwAEDTmJAwdxNHByZXNzA2NvbQAAAQABAAAAMwAENBdxiwdxNHByZXNzA2NvbQAAAQABAAAAMwAENrF2DQ=="
+		]`)
+
+	// fill dns cache
+	var d spf.CacheDump
+	if err := json.Unmarshal(dump, &d); err != nil {
+		log.Fatal(err)
+	}
+
+	c := gcache.New(100).Build()
+	// use resolver with cache and no parallelism
+	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
+	if err != nil {
+		log.Fatalf("error creating resolver: %s", err)
+	}
+	d.ForEach(r.CacheResponse)
+
+	// create a printer
+	p := New(os.Stdout, r)
+
+
+	res, s, _, err := spf.CheckHost(net.ParseIP("0.0.0.0"), "q4press.com", "aspmx.l.google.com",
+		spf.WithResolver(p),
+		spf.WithListener(p),
+	)
+	if err != nil {
+		log.Fatalf("%s %q %s", res, s, err)
+	}
+
+	// Unordered output:
+	// CHECK_HOST("0.0.0.0", "q4press.com.", "aspmx.l.google.com")
+	//     lookup(TXT:strict) q4press.com.
+	//   SPF: v=spf1 include:_spf.q4press.com ~all
+	//   v=spf1
+	//   include:_spf.q4press.com (_spf.q4press.com.)
+	//   CHECK_HOST("0.0.0.0", "_spf.q4press.com.", "aspmx.l.google.com")
+	//       lookup(TXT:strict) _spf.q4press.com.
+	//     SPF: v=spf1 a:web.q4press.com -all
+	//     v=spf1
+	//     a:web.q4press.com (web.q4press.com.)
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (146.20.91.153/32 has? 0.0.0.0) = false
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (146.20.91.152/32 has? 0.0.0.0) = false
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (3.208.74.172/32 has? 0.0.0.0) = false
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (13.57.137.3/32 has? 0.0.0.0) = false
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (52.23.113.139/32 has? 0.0.0.0) = false
+	//       lookup(a:web.q4press.com.) web.q4press.com. -> (54.177.118.13/32 has? 0.0.0.0) = false
+	//     -all
+	//   = fail, "", <nil>
+	//   ~all
+	// = softfail, "", <nil>
+	//
+}

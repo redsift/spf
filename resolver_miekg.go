@@ -219,6 +219,8 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, error) {
 			ip = a.A
 		case *dns.AAAA:
 			ip = a.AAAA
+		default: // ignore other (CNAME)
+			continue
 		}
 		if m, e := matcher(ip, name); m || e != nil {
 			return m, e
