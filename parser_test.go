@@ -343,7 +343,7 @@ func TestParseA(t *testing.T) {
 	var result Result
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
-			match, result, _ = p.parseA(testcase.Input)
+			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 			}
@@ -399,7 +399,7 @@ func TestParseAIpv6(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
-			match, result, _ = p.parseA(testcase.Input)
+			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 			}
@@ -549,7 +549,7 @@ func TestParseMX(t *testing.T) {
 		for _, ip := range ips {
 			t.Run(testcase.Input.String()+"/"+ip.String(), func(t *testing.T) {
 				p.ip = ip
-				match, result, _ = p.parseMX(testcase.Input)
+				match, result, _, _ = p.parseMX(testcase.Input)
 				if testcase.Match != match {
 					t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 				}
@@ -599,7 +599,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
-		match, result, _ = p.parseMX(testcase.Input)
+		match, result, _, _ = p.parseMX(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
 		}

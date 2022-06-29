@@ -24,7 +24,7 @@ func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
 	}))
 	defer dns.HandleRemove("multiline.test.")
 
-	r, e := testResolver.LookupTXTStrict("multiline.test.")
+	r, _, e := testResolver.LookupTXTStrict("multiline.test.")
 
 	if e != nil {
 		t.Fatal(e)
@@ -90,7 +90,7 @@ func TestMiekgDNSResolver_LookupTXT_Multiline(t *testing.T) {
 	}))
 	defer dns.HandleRemove("multiline.test.")
 
-	r, e := testResolver.LookupTXT("multiline.test.")
+	r, _, e := testResolver.LookupTXT("multiline.test.")
 
 	if e != nil {
 		t.Fatal(e)
@@ -146,7 +146,7 @@ func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 		t.Fatal("Could not create resolver", err)
 	}
 
-	txts, err := resolver.LookupTXTStrict("thomsonreuters.com.")
+	txts, _, err := resolver.LookupTXTStrict("thomsonreuters.com.")
 	if err != nil {
 		t.Fatal("Could not query TXTs", err)
 	}

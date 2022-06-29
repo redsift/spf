@@ -67,13 +67,13 @@ func NewRetryResolver(rr []Resolver, opts ...RetryResolverOption) Resolver {
 
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *retryResolver) LookupTXTStrict(name string) ([]string, error) {
+func (r *retryResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, err := next.LookupTXTStrict(name)
+			v, ttl, err := next.LookupTXTStrict(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, err
+				return v, ttl, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -81,13 +81,13 @@ func (r *retryResolver) LookupTXTStrict(name string) ([]string, error) {
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name.
-func (r *retryResolver) LookupTXT(name string) ([]string, error) {
+func (r *retryResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, err := next.LookupTXT(name)
+			v, ttl, err := next.LookupTXT(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, err
+				return v, ttl, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -114,13 +114,13 @@ func (r *retryResolver) Exists(name string) (bool, error) {
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, err := next.MatchIP(name, matcher)
+			v, ttl, err := next.MatchIP(name, matcher)
 			if err != ErrDNSTemperror || expired() {
-				return v, err
+				return v, ttl, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -131,13 +131,13 @@ func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *retryResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *retryResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, err := next.MatchMX(name, matcher)
+			v, ttl, err := next.MatchMX(name, matcher)
 			if err != ErrDNSTemperror || expired() {
-				return v, err
+				return v, ttl, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))

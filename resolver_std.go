@@ -3,6 +3,7 @@ package spf
 import (
 	"net"
 	"sync"
+	"time"
 )
 
 // DNSResolver implements Resolver using local DNS
@@ -33,7 +34,7 @@ func errDNS(e error) error {
 
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *DNSResolver) LookupTXTStrict(name string) ([]string, error) {
+func (r *DNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
 	txts, err := net.LookupTXT(name)
 
 	if dnsErr, ok := err.(*net.DNSError); ok {
@@ -49,25 +50,25 @@ func (r *DNSResolver) LookupTXTStrict(name string) ([]string, error) {
 		//  the mechanism continues as if the server returned no error (RCODE
 		//  0) and zero answer records.
 		if dnsErr.Err == "no such host" {
-			return nil, ErrDNSPermerror
+			return nil, 0, ErrDNSPermerror
 		}
 	}
 
 	err = errDNS(err)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return txts, nil
+	return txts, 0, nil
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name.
-func (r *DNSResolver) LookupTXT(name string) ([]string, error) {
+func (r *DNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 	txts, err := net.LookupTXT(name)
 	err = errDNS(err)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return txts, nil
+	return txts, 0, nil
 }
 
 // Exists is used for a DNS A RR lookup (even when the
@@ -84,6 +85,7 @@ func (r *DNSResolver) Exists(name string) (bool, error) {
 
 type hit struct {
 	found bool
+	ttl   time.Duration
 	err   error
 }
 
@@ -91,29 +93,29 @@ type hit struct {
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	ips, err := net.LookupIP(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 	for _, ip := range ips {
 		if m, e := matcher(ip, name); m || e != nil {
-			return m, e
+			return m, 0, e
 		}
 	}
-	return false, nil
+	return false, 0, nil
 }
 
 // MatchMX is similar to MatchIP but first performs an MX lookup on the
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	mxs, err := net.LookupMX(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	var wg sync.WaitGroup
@@ -122,8 +124,8 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) 
 	for _, mx := range mxs {
 		wg.Add(1)
 		go func(name string) {
-			found, err := r.MatchIP(name, matcher)
-			hits <- hit{found, err}
+			found, ttl, err := r.MatchIP(name, matcher)
+			hits <- hit{found, ttl, err}
 			wg.Done()
 		}(mx.Host)
 	}
@@ -135,9 +137,9 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) 
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.err
+			return h.found, h.ttl, h.err
 		}
 	}
 
-	return false, nil
+	return false, 0, nil
 }
