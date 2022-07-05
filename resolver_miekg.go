@@ -37,7 +37,7 @@ func MiekgDNSClient(c *dns.Client) MiekgDNSResolverOption {
 		if c == nil {
 			return
 		}
-		if r.dnsClients==nil {
+		if r.dnsClients == nil {
 			r.dnsClients = make(map[string]*dns.Client)
 		}
 		r.dnsClients[c.Net] = c
@@ -66,7 +66,7 @@ func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (*miekgDNS
 // miekgDNSResolver implements Resolver using github.com/miekg/dns
 type miekgDNSResolver struct {
 	mu          sync.Mutex
-	dnsClients map[string]*dns.Client
+	dnsClients  map[string]*dns.Client
 	cache       gcache.Cache
 	serverAddr  string
 	parallelism int
@@ -133,6 +133,9 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 			continue
 		}
 		res, _, err = dnsClient.Exchange(req, r.serverAddr)
+		if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
+			continue
+		}
 		if err == nil && res.Truncated {
 			continue
 		}
