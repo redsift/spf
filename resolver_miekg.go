@@ -133,6 +133,9 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 			continue
 		}
 		res, _, err = dnsClient.Exchange(req, r.serverAddr)
+		if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
+			continue
+		}
 		if err == nil && res.Truncated {
 			continue
 		}
