@@ -786,7 +786,7 @@ func TestParseExists(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		match, result, _ := p.parseExists(testcase.Input)
+		match, result, _, _ := p.parseExists(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
 		}

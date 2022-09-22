@@ -222,36 +222,35 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, time.Duration
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
-// mechanism matches.
-func (r *miekgDNSResolver) Exists(name string) (bool, error) {
+// mechanism matches and returns the ttl.
+func (r *miekgDNSResolver) Exists(name string) (bool, time.Duration, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeA)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
-	return len(res.Answer) > 0, nil
-}
-
-/*
 	var ttl uint32 = 1<<32 - 1
 
-	txts := make([]string, 0, len(res.Answer))
+	as := 0
 	for _, a := range res.Answer {
-		if r, ok := a.(*dns.TXT); ok {
-			txts = append(txts, strings.Join(r.Txt, ""))
+		if _, ok := a.(*dns.A); ok {
+			as++
 			if d := a.Header().Ttl; d < ttl {
 				ttl = d
 			}
 		}
 	}
 
-	if len(txts) == 0 {
+	if as == 0 {
 		ttl = 0
 	}
-*/
+
+	return len(res.Answer) > 0, time.Duration(ttl), nil
+}
+
 func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, time.Duration, error) {
 	var ttl uint32 = 1<<32 - 1
 

@@ -51,12 +51,12 @@ func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, time.Duration,
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
-// mechanism matches.
+// mechanism matches and returns the ttl.
 // Returns false and ErrDNSLimitExceeded if total number of lookups made
 // by underlying resolver exceed the limit.
-func (r *LimitedResolver) Exists(name string) (bool, error) {
+func (r *LimitedResolver) Exists(name string) (bool, time.Duration, error) {
 	if !r.canLookup() {
-		return false, ErrDNSLimitExceeded
+		return false, 0, ErrDNSLimitExceeded
 	}
 	return r.resolver.Exists(name)
 }

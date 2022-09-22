@@ -69,7 +69,7 @@ type Resolver interface {
 	// Exists is used for a DNS A RR lookup (even when the
 	// connection type is IPv6).  If any A record is returned, this
 	// mechanism matches and returns the TTL with it.
-	Exists(string) (bool, error)
+	Exists(string) (bool, time.Duration, error)
 	// MatchIP provides an address lookup, which should be done on the name
 	// using the type of lookup (A or AAAA).
 	// Then IPMatcherFunc used to compare checked IP to the returned address(es).

@@ -96,14 +96,14 @@ func (r *retryResolver) LookupTXT(name string) ([]string, time.Duration, error) 
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
-// mechanism matches.
-func (r *retryResolver) Exists(name string) (bool, error) {
+// mechanism matches and returns the ttl.
+func (r *retryResolver) Exists(name string) (bool, time.Duration, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, err := next.Exists(name)
+			v, ttl, err := next.Exists(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, err
+				return v, ttl, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))

@@ -45,7 +45,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 	defer dns.HandleRemove("slow.test.")
 
 	start := time.Now()
-	found, e := testResolver.Exists("slow.test.")
+	found, _, e := testResolver.Exists("slow.test.")
 	d := time.Since(start)
 
 	if !found {
@@ -61,7 +61,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 	}
 
 	start = time.Now()
-	_, e = testResolver.Exists("slow.test.")
+	_, _, e = testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
 	if e != nil {
@@ -74,7 +74,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	start = time.Now()
-	_, e = testResolver.Exists("slow.test.")
+	_, _, e = testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
 	if d < latency {

@@ -247,7 +247,7 @@ func (p *parser) check() (Result, string, error, unused) {
 		case tInclude:
 			matches, result, err = p.parseInclude(token)
 		case tExists:
-			matches, result, err = p.parseExists(token)
+			matches, result, ttl, err = p.parseExists(token)
 		case tPTR:
 			_, _, _ = p.parsePtr(token)
 		default:
@@ -573,7 +573,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 
 }
 
-func (p *parser) parseExists(t *token) (bool, Result, error) {
+func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 	resolvedDomain, err := parseMacroToken(p, t)
 	if err == nil {
 		resolvedDomain, err = truncateFQDN(resolvedDomain)
@@ -584,22 +584,22 @@ func (p *parser) parseExists(t *token) (bool, Result, error) {
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, 0, SyntaxError{t, err}
 	}
 	if resolvedDomain == "" {
-		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
+		return true, Permerror, 0, SyntaxError{t, ErrEmptyDomain}
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, err := p.resolver.Exists(resolvedDomain)
+	found, ttl, err := p.resolver.Exists(resolvedDomain)
 	switch err {
 	case nil:
-		return found, result, nil
+		return found, result, ttl, nil
 	case ErrDNSPermerror:
-		return false, result, nil
+		return false, result, 0, nil
 	default:
-		return false, Temperror, err // was true 8-|
+		return false, Temperror, 0, err // was true 8-|
 	}
 }
 

@@ -94,7 +94,7 @@ func (p *Printer) LookupTXTStrict(name string) ([]string, time.Duration, error) 
 	return p.r.LookupTXTStrict(name)
 }
 
-func (p *Printer) Exists(name string) (bool, error) {
+func (p *Printer) Exists(name string) (bool, time.Duration, error) {
 	fmt.Fprintf(p.w, "%s  lookup(A)\n", strings.Repeat("  ", p.c))
 	atomic.AddInt64(&p.lc, 1)
 	return p.r.Exists(name)

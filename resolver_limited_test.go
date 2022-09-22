@@ -49,11 +49,11 @@ func TestLimitedResolver(t *testing.T) {
 	}
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		b, err := r.Exists("domain.")
+		b, _, err := r.Exists("domain.")
 		if !b || err != nil {
 			t.Error("failed on 1st Exists")
 		}
-		b, err = r.Exists("domain.")
+		b, _, err = r.Exists("domain.")
 		if b || err != ErrDNSLimitExceeded {
 			t.Error("failed on 2nd Exists")
 		}

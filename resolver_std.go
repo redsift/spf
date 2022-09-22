@@ -73,14 +73,14 @@ func (r *DNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
-// mechanism matches.
-func (r *DNSResolver) Exists(name string) (bool, error) {
+// mechanism matches and returns the ttl.
+func (r *DNSResolver) Exists(name string) (bool, time.Duration, error) {
 	ips, err := net.LookupIP(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
-	return len(ips) > 0, nil
+	return len(ips) > 0, 0, nil
 }
 
 type hit struct {
