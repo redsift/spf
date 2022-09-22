@@ -155,7 +155,8 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 
-// LookupTXT returns the DNS TXT records for the given domain name.
+// LookupTXT returns the DNS TXT records for the given domain name and
+// the minimum TTL
 func (r *miekgDNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)

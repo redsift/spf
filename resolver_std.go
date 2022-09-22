@@ -32,7 +32,7 @@ func errDNS(e error) error {
 	return ErrDNSTemperror
 }
 
-// LookupTXTStrict returns DNS TXT records for the given name, however it
+// LookupTXTStrict returns DNS TXT records for the given name and the TTL, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
 func (r *DNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
 	txts, err := net.LookupTXT(name)
@@ -61,7 +61,7 @@ func (r *DNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, err
 	return txts, 0, nil
 }
 
-// LookupTXT returns the DNS TXT records for the given domain name.
+// LookupTXT returns the DNS TXT records for the given domain name and the TTL.
 func (r *DNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 	txts, err := net.LookupTXT(name)
 	err = errDNS(err)
@@ -92,7 +92,7 @@ type hit struct {
 // MatchIP provides an address lookup, which should be done on the name
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
+// If any address matches, the mechanism matches and returns the TTL with it
 func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	ips, err := net.LookupIP(name)
 	err = errDNS(err)
@@ -110,7 +110,7 @@ func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Du
 // MatchMX is similar to MatchIP but first performs an MX lookup on the
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
+// If any address matches, the mechanism matches and returns the TTL.
 func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	mxs, err := net.LookupMX(name)
 	err = errDNS(err)
