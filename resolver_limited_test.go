@@ -38,22 +38,22 @@ func TestLimitedResolver(t *testing.T) {
 
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		a, err := r.LookupTXT("domain.")
+		a, _, err := r.LookupTXT("domain.")
 		if len(a) == 0 || err != nil {
 			t.Error("failed on 1st LookupTXT")
 		}
-		a, err = r.LookupTXT("domain.")
+		a, _, err = r.LookupTXT("domain.")
 		if len(a) == 1 && err != nil {
 			t.Errorf("failed on 2nd LookupTXT with %v", err)
 		}
 	}
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		b, err := r.Exists("domain.")
+		b, _, err := r.Exists("domain.")
 		if !b || err != nil {
 			t.Error("failed on 1st Exists")
 		}
-		b, err = r.Exists("domain.")
+		b, _, err = r.Exists("domain.")
 		if b || err != ErrDNSLimitExceeded {
 			t.Error("failed on 2nd Exists")
 		}
@@ -65,29 +65,29 @@ func TestLimitedResolver(t *testing.T) {
 	}
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		b, err := r.MatchIP("domain.", newMatcher(net.ParseIP("10.0.0.1")))
+		b, _, err := r.MatchIP("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if !b || err != nil {
 			t.Error("failed on 1st MatchIP")
 		}
-		b, err = r.MatchIP("domain.", newMatcher(net.ParseIP("10.0.0.1")))
+		b, _, err = r.MatchIP("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if b || err != ErrDNSLimitExceeded {
 			t.Error("failed on 2nd MatchIP")
 		}
 	}
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		b, err := r.MatchMX("domain.", newMatcher(net.ParseIP("10.0.0.1")))
+		b, _, err := r.MatchMX("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if !b || err != nil {
 			t.Error("failed on 1st MatchMX")
 		}
-		b, err = r.MatchMX("domain.", newMatcher(net.ParseIP("10.0.0.1")))
+		b, _, err = r.MatchMX("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if b || err != ErrDNSLimitExceeded {
 			t.Error("failed on 2nd MatchMX")
 		}
 	}
 	{
 		r := NewLimitedResolver(testResolver, 2, 2)
-		b, err := r.MatchMX("mxmustfail.", newMatcher(net.ParseIP("10.0.0.10")))
+		b, _, err := r.MatchMX("mxmustfail.", newMatcher(net.ParseIP("10.0.0.10")))
 		if b || err != ErrDNSLimitExceeded {
 			t.Errorf("MatchMX got: %v, %v; want false, ErrDNSLimitExceeded", b, err)
 		}

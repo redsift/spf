@@ -17,7 +17,7 @@ func TestCacheDump(t *testing.T) {
 	}))
 	defer dns.HandleRemove("multiline.test.")
 
-	if _, err := testResolver.LookupTXT("multiline.test."); err != nil {
+	if _, _, err := testResolver.LookupTXT("multiline.test."); err != nil {
 		t.Error(err)
 	}
 

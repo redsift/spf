@@ -23,24 +23,24 @@ func (r *brokenResolver) error() error {
 	return ErrDNSTemperror
 }
 
-func (r *brokenResolver) LookupTXTStrict(name string) ([]string, error) {
-	return nil, r.error()
+func (r *brokenResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
+	return nil, 0, r.error()
 }
 
-func (r *brokenResolver) LookupTXT(name string) ([]string, error) {
-	return nil, r.error()
+func (r *brokenResolver) LookupTXT(name string) ([]string, time.Duration, error) {
+	return nil, 0, r.error()
 }
 
-func (r *brokenResolver) Exists(name string) (bool, error) {
-	return false, r.error()
+func (r *brokenResolver) Exists(name string) (bool, time.Duration, error) {
+	return false, 0, r.error()
 }
 
-func (r *brokenResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
-	return false, r.error()
+func (r *brokenResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+	return false, 0, r.error()
 }
 
-func (r *brokenResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
-	return false, r.error()
+func (r *brokenResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+	return false, 0, r.error()
 }
 
 func TestRetryResolver_Exists(t *testing.T) {
@@ -69,7 +69,7 @@ func TestRetryResolver_Exists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tries = 0
 			start := time.Now()
-			_, err := tt.r.Exists("domain.")
+			_, _, err := tt.r.Exists("domain.")
 			if err != tt.e {
 				t.Errorf("Exists() error = %v, wantErr %v", err, tt.e)
 				return

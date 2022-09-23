@@ -155,66 +155,105 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 
-// LookupTXT returns the DNS TXT records for the given domain name.
-func (r *miekgDNSResolver) LookupTXT(name string) ([]string, error) {
+// LookupTXT returns the DNS TXT records for the given domain name and
+// the minimum TTL
+func (r *miekgDNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
+	var ttl uint32 = 1<<32 - 1
 
 	txts := make([]string, 0, len(res.Answer))
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
 			txts = append(txts, strings.Join(r.Txt, ""))
+			if d := a.Header().Ttl; d < ttl {
+				ttl = d
+			}
 		}
 	}
-	return txts, nil
+
+	if len(txts) == 0 {
+		ttl = 0
+	}
+
+	return txts, time.Duration(ttl) * time.Second, nil
 }
 
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, error) {
+func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
 
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if res.Rcode == dns.RcodeNameError {
-		return nil, ErrDNSPermerror
+		return nil, 0, ErrDNSPermerror
 	}
+
+	var ttl uint32 = 1<<32 - 1
 
 	txts := make([]string, 0, len(res.Answer))
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
 			txts = append(txts, strings.Join(r.Txt, ""))
+			if d := a.Header().Ttl; d < ttl {
+				ttl = d
+			}
 		}
 	}
-	return txts, nil
+
+	if len(txts) == 0 {
+		ttl = 0
+	}
+
+	return txts, time.Duration(ttl) * time.Second, nil
 }
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
-// mechanism matches.
-func (r *miekgDNSResolver) Exists(name string) (bool, error) {
+// mechanism matches and returns the ttl.
+func (r *miekgDNSResolver) Exists(name string) (bool, time.Duration, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeA)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
-	return len(res.Answer) > 0, nil
+	var ttl uint32 = 1<<32 - 1
+
+	as := 0
+	for _, a := range res.Answer {
+		if _, ok := a.(*dns.A); ok {
+			as++
+			if d := a.Header().Ttl; d < ttl {
+				ttl = d
+			}
+		}
+	}
+
+	if as == 0 {
+		ttl = 0
+	}
+
+	return len(res.Answer) > 0, time.Duration(ttl), nil
 }
 
-func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, error) {
+func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, time.Duration, error) {
+	var ttl uint32 = 1<<32 - 1
+
 	for _, rr := range rrs {
 		var ip net.IP
 		switch a := rr.(type) {
@@ -225,18 +264,23 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, error) {
 		default: // ignore other (CNAME)
 			continue
 		}
+
+		if d := rr.Header().Ttl; d < ttl {
+			ttl = d
+		}
+
 		if m, e := matcher(ip, name); m || e != nil {
-			return m, e
+			return m, time.Duration(ttl) * time.Second, e
 		}
 	}
-	return false, nil
+	return false, 0, nil
 }
 
 // MatchIP provides an address lookup, which should be done on the name
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	var wg sync.WaitGroup
 	qTypes := []uint16{dns.TypeA, dns.TypeAAAA}
 	hits := make(chan hit, len(qTypes))
@@ -250,12 +294,12 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 			req.SetQuestion(name, qType)
 			res, err := r.exchange(req)
 			if err != nil {
-				hits <- hit{false, err}
+				hits <- hit{false, 0, err}
 				return
 			}
 
-			if m, e := matchIP(res.Answer, matcher, name); m || e != nil {
-				hits <- hit{m, e}
+			if m, ttl, e := matchIP(res.Answer, matcher, name); m || e != nil {
+				hits <- hit{m, ttl, e}
 				return
 			}
 		}
@@ -274,24 +318,24 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, er
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.err
+			return h.found, h.ttl, h.err
 		}
 	}
 
-	return false, nil
+	return false, 0, nil
 }
 
 // MatchMX is similar to MatchIP but first performs an MX lookup on the
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, error) {
+func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeMX)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	var wg sync.WaitGroup
@@ -313,8 +357,8 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, er
 		wg.Add(1)
 		match := func() {
 			name := <-names
-			found, err := r.MatchIP(name, matcher)
-			hits <- hit{found, err}
+			found, ttl, err := r.MatchIP(name, matcher)
+			hits <- hit{found, ttl, err}
 			wg.Done()
 		}
 		names <- mx.Mx
@@ -332,9 +376,9 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, er
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.err
+			return h.found, h.ttl, h.err
 		}
 	}
 
-	return false, nil
+	return false, 0, nil
 }

@@ -232,6 +232,13 @@ type TokenTestCase struct {
 	Match  bool
 }
 
+type TokenTestCaseWithTTL struct {
+	Input  *token
+	Result Result
+	Match  bool
+	Ttl    time.Duration
+}
+
 // TODO(marek): Add testfunction for tVersion token
 
 func TestParseAll(t *testing.T) {
@@ -261,89 +268,89 @@ func TestParseAll(t *testing.T) {
 func TestParseA(t *testing.T) {
 	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
 		dns.TypeA: {
-			"matching.com. 0 IN A 172.20.21.1",
-			"matching.com. 0 IN A 172.18.0.2",
-			"matching.com. 0 IN A 172.20.20.1",
+			"matching.com. 2 IN A 172.20.21.1",
+			"matching.com. 20 IN A 172.18.0.2",
+			"matching.com. 5 IN A 172.20.20.1",
 		},
 		dns.TypeAAAA: {
-			"matching.com. 0 IN AAAA 2001:4860:0:2001::68",
+			"matching.com. 2 IN AAAA 2001:4860:0:2001::68",
 		},
 	}))
 	defer dns.HandleRemove("matching.com.")
 
 	dns.HandleFunc("positive.matching.com.", zone(map[uint16][]string{
 		dns.TypeA: {
-			"positive.matching.com. 0 IN A 172.20.21.1",
-			"positive.matching.com. 0 IN A 172.18.0.2",
-			"positive.matching.com. 0 IN A 172.20.20.1",
+			"positive.matching.com. 2 IN A 172.20.21.1",
+			"positive.matching.com. 20 IN A 172.18.0.2",
+			"positive.matching.com. 100 IN A 172.20.20.1",
 		},
 		dns.TypeAAAA: {
-			"positive.matching.com. 0 IN AAAA 2001:4860:0:2001::68",
+			"positive.matching.com. 2 IN AAAA 2001:4860:0:2001::68",
 		},
 	}))
 	defer dns.HandleRemove("positive.matching.com.")
 
 	dns.HandleFunc("negative.matching.com.", zone(map[uint16][]string{
 		dns.TypeA: {
-			"negative.matching.com. 0 IN A 172.20.21.1",
+			"negative.matching.com. 2 IN A 172.20.21.1",
 		},
 	}))
 	defer dns.HandleRemove("negative.matching.com.")
 
 	dns.HandleFunc("range.matching.com.", zone(map[uint16][]string{
 		dns.TypeA: {
-			"range.matching.com. 0 IN A 172.18.0.2",
+			"range.matching.com. 2 IN A 172.18.0.2",
 		},
 	}))
 	defer dns.HandleRemove("range.matching.com.")
 
 	dns.HandleFunc("lb.matching.com.", zone(map[uint16][]string{
 		dns.TypeA: {
-			"lb.matching.com. 0 IN A 172.18.0.2",
+			"lb.matching.com. 2 IN A 172.18.0.2",
 		},
 	}))
 	defer dns.HandleRemove("lb.matching.com.")
 
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{172, 18, 0, 2})
-	testcases := []TokenTestCase{
-		{&token{tA, qPlus, "positive.matching.com"}, Pass, true},
-		{&token{tA, qPlus, "positive.matching.com/32"}, Pass, true},
-		{&token{tA, qPlus, "negative.matching.com"}, Pass, false},
-		{&token{tA, qPlus, "range.matching.com/16"}, Pass, true},
-		{&token{tA, qPlus, "range.matching.com/128"}, Permerror, true},
-		{&token{tA, qPlus, "idontexist"}, Pass, false},
-		{&token{tA, qPlus, "#%$%^"}, Permerror, true},
-		{&token{tA, qPlus, "lb.matching.com"}, Pass, true},
-		{&token{tA, qMinus, ""}, Fail, true},
-		{&token{tA, qTilde, ""}, Softfail, true},
+	testcases := []TokenTestCaseWithTTL{
+		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/32"}, Pass, true, 2},
+		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, 0},
+		{&token{tA, qPlus, "range.matching.com/16"}, Pass, true, 2},
+		{&token{tA, qPlus, "range.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "idontexist"}, Pass, false, 0},
+		{&token{tA, qPlus, "#%$%^"}, Permerror, true, 2},
+		{&token{tA, qPlus, "lb.matching.com"}, Pass, true, 2},
+		{&token{tA, qMinus, ""}, Fail, true, 0},
+		{&token{tA, qTilde, ""}, Softfail, true, 0},
 
 		// expect (Permerror, true) results as a result of syntax errors
-		{&token{tA, qPlus, "range.matching.com/wrongmask"}, Permerror, true},
-		{&token{tA, qPlus, "range.matching.com/129"}, Permerror, true},
-		{&token{tA, qPlus, "range.matching.com/-1"}, Permerror, true},
+		{&token{tA, qPlus, "range.matching.com/wrongmask"}, Permerror, true, 2},
+		{&token{tA, qPlus, "range.matching.com/129"}, Permerror, true, 2},
+		{&token{tA, qPlus, "range.matching.com/-1"}, Permerror, true, 2},
 
 		// expect (Permerror, true) due to wrong netmasks.
 		// It's a syntax error to specify a netmask over 32 bits for IPv4 addresses
-		{&token{tA, qPlus, "negative.matching.com/128"}, Permerror, true},
-		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true},
-		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true},
+		{&token{tA, qPlus, "negative.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
 
 		// test dual-cidr syntax
-		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true},
-		{&token{tA, qPlus, "positive.matching.com/32/"}, Pass, true},
-		{&token{tA, qPlus, "positive.matching.com/0/0"}, Pass, true},
-		{&token{tA, qPlus, "positive.matching.com/24/24"}, Pass, true},
-		{&token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true},
-		{&token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true},
-		{&token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true},
-		{&token{tA, qPlus, "//32"}, Pass, true},
+		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/32/"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/0/0"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/24/24"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true, 2},
+		{&token{tA, qPlus, "//32"}, Pass, true, 2},
 	}
 
 	var match bool
 	var result Result
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
-			match, result, _ = p.parseA(testcase.Input)
+			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 			}
@@ -399,7 +406,7 @@ func TestParseAIpv6(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
-			match, result, _ = p.parseA(testcase.Input)
+			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 			}
@@ -508,17 +515,17 @@ func TestParseMX(t *testing.T) {
 
 	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
 		dns.TypeMX: {
-			"matching.com. 0 IN MX 5 mail.matching.com.",
-			"matching.com. 0 IN MX 10 mail2.matching.com.",
-			"matching.com. 0 IN MX 15 mail3.matching.com.",
+			"matching.com. 2 IN MX 5 mail.matching.com.",
+			"matching.com. 100 IN MX 10 mail2.matching.com.",
+			"matching.com. 5000 IN MX 15 mail3.matching.com.",
 		},
 		dns.TypeAAAA: {
-			"mail.matching.com. 0 IN AAAA 2001:4860:1:2001::80",
+			"mail.matching.com. 2 IN AAAA 2001:4860:1:2001::80",
 		},
 		dns.TypeA: {
-			"mail.matching.com. 0 IN A 172.18.0.2",
-			"mail2.matching.com. 0 IN A 172.20.20.20",
-			"mail3.matching.com. 0 IN A 172.100.0.1",
+			"mail.matching.com. 2 IN A 172.18.0.2",
+			"mail2.matching.com. 30 IN A 172.20.20.20",
+			"mail3.matching.com. 2 IN A 172.100.0.1",
 		},
 	}))
 	defer dns.HandleRemove("matching.com.")
@@ -527,19 +534,19 @@ func TestParseMX(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{0, 0, 0, 0})
 
-	testcases := []TokenTestCase{
-		{&token{tMX, qPlus, "matching.com"}, Pass, true},
-		{&token{tMX, qPlus, "matching.com/24"}, Pass, true},
-		{&token{tMX, qPlus, "matching.com/24/64"}, Pass, true},
-		{&token{tMX, qPlus, "/24"}, Pass, true}, // domain is matching.com.
-		{&token{tMX, qPlus, ""}, Pass, true},
-		{&token{tMX, qMinus, ""}, Fail, true},
-		{&token{tMX, qPlus, "idontexist"}, Pass, false},
+	testcases := []TokenTestCaseWithTTL{
+		{&token{tMX, qPlus, "matching.com"}, Pass, true, 2},
+		{&token{tMX, qPlus, "matching.com/24"}, Pass, true, 2},
+		{&token{tMX, qPlus, "matching.com/24/64"}, Pass, true, 2},
+		{&token{tMX, qPlus, "/24"}, Pass, true, 2}, // domain is matching.com.
+		{&token{tMX, qPlus, ""}, Pass, true, 0},
+		{&token{tMX, qMinus, ""}, Fail, true, 0},
+		{&token{tMX, qPlus, "idontexist"}, Pass, false, 0},
 		// Mind that the domain is matching.NET and we expect Parser
 		// to not match results.
-		{&token{tMX, qPlus, "matching.net"}, Pass, false},
-		{&token{tMX, qPlus, "matching.net/24"}, Pass, false},
-		{&token{tMX, qPlus, "matching.net/24/64"}, Pass, false},
+		{&token{tMX, qPlus, "matching.net"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.net/24"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.net/24/64"}, Pass, false, 0},
 	}
 
 	var match bool
@@ -549,7 +556,7 @@ func TestParseMX(t *testing.T) {
 		for _, ip := range ips {
 			t.Run(testcase.Input.String()+"/"+ip.String(), func(t *testing.T) {
 				p.ip = ip
-				match, result, _ = p.parseMX(testcase.Input)
+				match, result, _, _ = p.parseMX(testcase.Input)
 				if testcase.Match != match {
 					t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
 				}
@@ -599,7 +606,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
-		match, result, _ = p.parseMX(testcase.Input)
+		match, result, _, _ = p.parseMX(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
 		}
@@ -779,7 +786,7 @@ func TestParseExists(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		match, result, _ := p.parseExists(testcase.Input)
+		match, result, _, _ := p.parseExists(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
 		}

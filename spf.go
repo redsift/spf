@@ -59,25 +59,27 @@ type IPMatcherFunc func(ip net.IP, name string) (bool, error)
 
 // Resolver provides abstraction for DNS layer
 type Resolver interface {
-	// LookupTXT returns the DNS TXT records for the given domain name.
-	LookupTXT(string) ([]string, error)
-	// LookupTXTStrict returns DNS TXT records for the given name, however it
-	// will return ErrDNSPermerror upon returned NXDOMAIN (RCODE 3)
-	LookupTXTStrict(string) ([]string, error)
+	// LookupTXT returns the DNS TXT records for the given domain name and
+	// the minimum TTL.
+	LookupTXT(string) ([]string, time.Duration, error)
+	// LookupTXTStrict returns DNS TXT records for the given name and the
+	// minimum TTL, however it will return ErrDNSPermerror upon returned
+	// NXDOMAIN (RCODE 3)
+	LookupTXTStrict(string) ([]string, time.Duration, error)
 	// Exists is used for a DNS A RR lookup (even when the
 	// connection type is IPv6).  If any A record is returned, this
-	// mechanism matches.
-	Exists(string) (bool, error)
+	// mechanism matches and returns the TTL with it.
+	Exists(string) (bool, time.Duration, error)
 	// MatchIP provides an address lookup, which should be done on the name
 	// using the type of lookup (A or AAAA).
 	// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-	// If any address matches, the mechanism matches
-	MatchIP(string, IPMatcherFunc) (bool, error)
+	// If any address matches, the mechanism matches and returns the TTL.
+	MatchIP(string, IPMatcherFunc) (bool, time.Duration, error)
 	// MatchMX is similar to MatchIP but first performs an MX lookup on the
 	// name.  Then it performs an address lookup on each MX name returned.
 	// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-	// If any address matches, the mechanism matches
-	MatchMX(string, IPMatcherFunc) (bool, error)
+	// If any address matches, the mechanism matches and returns the TTL.
+	MatchMX(string, IPMatcherFunc) (bool, time.Duration, error)
 }
 
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF

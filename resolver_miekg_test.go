@@ -24,7 +24,7 @@ func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
 	}))
 	defer dns.HandleRemove("multiline.test.")
 
-	r, e := testResolver.LookupTXTStrict("multiline.test.")
+	r, _, e := testResolver.LookupTXTStrict("multiline.test.")
 
 	if e != nil {
 		t.Fatal(e)
@@ -45,7 +45,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 	defer dns.HandleRemove("slow.test.")
 
 	start := time.Now()
-	found, e := testResolver.Exists("slow.test.")
+	found, _, e := testResolver.Exists("slow.test.")
 	d := time.Since(start)
 
 	if !found {
@@ -61,7 +61,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 	}
 
 	start = time.Now()
-	_, e = testResolver.Exists("slow.test.")
+	_, _, e = testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
 	if e != nil {
@@ -74,7 +74,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	start = time.Now()
-	_, e = testResolver.Exists("slow.test.")
+	_, _, e = testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
 	if d < latency {
@@ -90,7 +90,7 @@ func TestMiekgDNSResolver_LookupTXT_Multiline(t *testing.T) {
 	}))
 	defer dns.HandleRemove("multiline.test.")
 
-	r, e := testResolver.LookupTXT("multiline.test.")
+	r, _, e := testResolver.LookupTXT("multiline.test.")
 
 	if e != nil {
 		t.Fatal(e)
@@ -146,7 +146,7 @@ func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 		t.Fatal("Could not create resolver", err)
 	}
 
-	txts, err := resolver.LookupTXTStrict("thomsonreuters.com.")
+	txts, _, err := resolver.LookupTXTStrict("thomsonreuters.com.")
 	if err != nil {
 		t.Fatal("Could not query TXTs", err)
 	}
