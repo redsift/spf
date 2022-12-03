@@ -1,6 +1,7 @@
 package spf
 
 import (
+	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ func TestMiekgDNSResolver(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
-	dns.HandleFunc("multiline.test.", zone(map[uint16][]string{
+	dns.HandleFunc("multiline.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`multiline.test. 0 IN TXT "v=spf1 ip4:10.0.0.1 ip4:10.0.0" ".2 -all"`,
 		},
@@ -37,7 +38,7 @@ func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
 
 func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 	latency := 500 * time.Millisecond
-	dns.HandleFunc("slow.test.", withLatency(zone(map[uint16][]string{
+	dns.HandleFunc("slow.test.", WithDelay(Zone(map[uint16][]string{
 		dns.TypeA: {
 			`slow.test. 2 IN A 127.0.0.1`,
 		},
@@ -83,7 +84,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_LookupTXT_Multiline(t *testing.T) {
-	dns.HandleFunc("multiline.test.", zone(map[uint16][]string{
+	dns.HandleFunc("multiline.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`multiline.test. 0 IN TXT "v=spf1 ip4:10.0.0.1 ip4:10.0.0" ".2 -all"`,
 		},

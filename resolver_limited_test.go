@@ -1,6 +1,7 @@
 package spf
 
 import (
+	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func TestLimitedResolver(t *testing.T) {
-	dns.HandleFunc("domain.", zone(map[uint16][]string{
+	dns.HandleFunc("domain.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"domain. 0 in MX 5 domain.",
 		},
@@ -21,7 +22,7 @@ func TestLimitedResolver(t *testing.T) {
 	}))
 	defer dns.HandleRemove("domain.")
 
-	dns.HandleFunc("mxmustfail.", zone(map[uint16][]string{
+	dns.HandleFunc("mxmustfail.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"mxmustfail. 0 in MX 5 mxmustfail.",
 		},

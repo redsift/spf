@@ -2,6 +2,7 @@ package spf
 
 import (
 	"encoding/json"
+	. "github.com/redsift/spf/v2/testing"
 	"reflect"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func TestCacheDump(t *testing.T) {
-	dns.HandleFunc("multiline.test.", zone(map[uint16][]string{
+	dns.HandleFunc("multiline.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`multiline.test. 0 IN TXT "v=spf1 ip4:10.0.0.1 ip4:10.0.0" ".2 -all"`,
 		},

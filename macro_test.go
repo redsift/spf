@@ -2,6 +2,7 @@ package spf
 
 import (
 	"fmt"
+	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
 	"time"
@@ -224,63 +225,63 @@ func TestMacro_Domains(t *testing.T) {
 	// below).
 	testResolverCache.Purge()
 
-	dns.HandleFunc("a.test.", zone(map[uint16][]string{
+	dns.HandleFunc("a.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`a.test. 0 IN TXT "v=spf1 include:positive.%{d} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("a.test.")
 
-	dns.HandleFunc("positive.a.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.a.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.a.test. 0 IN TXT "v=spf1 +all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.a.test.")
 
-	dns.HandleFunc("b.test.", zone(map[uint16][]string{
+	dns.HandleFunc("b.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`b.test. 0 IN TXT "v=spf1 include:positive.%{O} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("b.test.")
 
-	dns.HandleFunc("positive.b.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.b.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.b.test. 0 IN TXT "v=spf1 -all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.b.test.")
 
-	dns.HandleFunc("c.test.", zone(map[uint16][]string{
+	dns.HandleFunc("c.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`c.test. 0 IN TXT "v=spf1 include:%{h} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("c.test.")
 
-	dns.HandleFunc("positive.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.test. 0 IN TXT "v=spf1 +all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.test.")
 
-	dns.HandleFunc("c.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("c.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`c.explain.test. 0 IN TXT "%{c}"`,
 		},
 	}))
 	defer dns.HandleRemove("c.explain.test.")
 
-	dns.HandleFunc("r.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("r.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`r.explain.test. 0 IN TXT "%{r}"`,
 		},
 	}))
 	defer dns.HandleRemove("r.explain.test.")
 
-	dns.HandleFunc("t.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("t.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`t.explain.test. 0 IN TXT "%{t}"`,
 		},
