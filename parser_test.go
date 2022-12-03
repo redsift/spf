@@ -962,7 +962,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1032,7 +1032,7 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			}
 			done := make(chan R)
 			go func() {
-				result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
+				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
 				done <- R{result, err}
 			}()
 			select {
@@ -1193,7 +1193,7 @@ func TestHandleExplanation(t *testing.T) {
 
 	for _, testcase := range expTestCases {
 		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", ip)
-		_, exp, err, _ := p.check()
+		_, exp, _, err := p.check()
 		if err != nil {
 			t.Errorf("%q unexpected error while parsing: %s", testcase.Query, err)
 		}

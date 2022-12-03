@@ -105,7 +105,7 @@ func ErrorsThreshold(n int) Option {
 		if err == nil {
 			return check(n)
 		}
-		cause, _ := Cause(err)
+		_, cause := Cause(err)
 		if cause == ErrTooManyErrors {
 			return true
 		}

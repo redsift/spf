@@ -58,7 +58,8 @@ func TestMacroIteration(t *testing.T) {
 
 	const skipAllBut = -1
 	for no, test := range tests {
-		if skipAllBut != -1 && skipAllBut != no {
+		if //goland:noinspection GoBoolExpressions
+		skipAllBut != -1 && skipAllBut != no {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
@@ -310,11 +311,12 @@ func TestMacro_Domains(t *testing.T) {
 
 	const skipAllBut = -1
 	for no, test := range tests {
-		if skipAllBut != -1 && skipAllBut != no {
+		if //goland:noinspection GoBoolExpressions
+		skipAllBut != -1 && skipAllBut != no {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, exp, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
 				HeloDomain(test.helo),
 				EvaluatedOn(time.Unix(1, 0)),
 				ReceivingFQDN(test.receivingFQDN)).

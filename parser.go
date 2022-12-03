@@ -68,14 +68,14 @@ func Unwrap(e error) (*token, error, bool) {
 	return nil, e, false
 }
 
-func Cause(e error) (error, string) {
+func Cause(e error) (string, error) {
 	var t, lastToken *token
 	for next := true; next; t, e, next = Unwrap(e) {
 		if t != nil {
 			lastToken = t
 		}
 	}
-	return e, lastToken.String()
+	return lastToken.String(), e
 }
 
 func (e SyntaxError) Cause() error {
@@ -186,7 +186,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", "", ErrSPFNotFound
 	}
 
-	r, expl, err, u = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
+	r, expl, u, err = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -208,7 +208,7 @@ type unused struct {
 // there is any syntax error) and starts evaluating
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
-func (p *parser) check() (Result, string, error, unused) {
+func (p *parser) check() (Result, string, unused, error) {
 	p.visited.push(p.domain)
 	defer p.visited.pop()
 
@@ -225,7 +225,7 @@ func (p *parser) check() (Result, string, error, unused) {
 
 	mechanisms, redirect, explanation, err := sortTokens(tokens)
 	if err != nil {
-		return Permerror, "", err, unused{mechanisms, redirect}
+		return Permerror, "", unused{mechanisms, redirect}, err
 	}
 
 	var all bool
@@ -260,13 +260,13 @@ func (p *parser) check() (Result, string, error, unused) {
 				s, err = p.handleExplanation(explanation)
 			}
 			p.fireMatch(token, result, s, ttl, err)
-			return result, s, err, unused{mechanisms[i+1:], redirect}
+			return result, s, unused{mechanisms[i+1:], redirect}, err
 		}
 		p.fireNonMatch(token, result, err)
 
 		// in walker-mode we want to count number of errors and check the counter against some threshold
 		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
-			return unreliableResult, "", ErrTooManyErrors, unused{mechanisms[i+1:], redirect}
+			return unreliableResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
 		}
 
 		// all expected errors should be thrown with matches=true
@@ -278,9 +278,9 @@ func (p *parser) check() (Result, string, error, unused) {
 	}
 
 	if p.ignoreMatches {
-		return unreliableResult, "", ErrUnreliableResult, unused{}
+		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
-	return result, "", err, unused{}
+	return result, "", unused{}, err
 }
 
 func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
@@ -549,7 +549,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/ if err != nil {
+	*/if err != nil {
 		err = SyntaxError{t, err}
 	}
 
