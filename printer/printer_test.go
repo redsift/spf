@@ -7,8 +7,9 @@ import (
 	"net"
 	"os"
 
+	"github.com/redsift/spf/v2"
+
 	"github.com/bluele/gcache"
-	"github.com/redsift/spf"
 )
 
 func ExamplePrinter() {

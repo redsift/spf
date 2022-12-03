@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/redsift/spf"
+	"github.com/redsift/spf/v2"
 )
 
 func New(w io.Writer, r spf.Resolver) *Printer {

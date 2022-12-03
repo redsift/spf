@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/redsift/spf"
+	"github.com/redsift/spf/v2"
 )
 
 func TestResult_MarshalJSON(t *testing.T) {
