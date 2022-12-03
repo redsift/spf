@@ -28,3 +28,5 @@ underlying DNS queries/responses.
 ## Pull requests & code review
 If you have any comments about code structure feel free to reach out or simply make a Pull Request
 
+## redsift/spf fork
+It started as a PR to the original lib, but eventually we added some functionality, that might not be backward compatible with it, and thus we consider it as mostly separate project.

@@ -13,7 +13,7 @@ import (
 type MiekgDNSResolverOption func(r *miekgDNSResolver)
 
 // MiekgDNSParallelism change parallelism level of matching IP and MX
-// Anything less than 1 means unlimited
+// Anything less than 1 used as unlimited
 func MiekgDNSParallelism(n int) MiekgDNSResolverOption {
 	return func(r *miekgDNSResolver) {
 		if n < 1 {
