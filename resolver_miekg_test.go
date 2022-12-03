@@ -115,12 +115,12 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 	}
 	r := NewRetryResolver(l, BackoffFactor(1.2))
 
-	//p := &printer{w: os.Stdout}
+	// p := &printer{w: os.Stdout}
 
 	// 172.217.31.1 is an address from _netblocks3.google.com., so checking it should unfold _spf.google.com
 	res, s, _, err := CheckHost(net.ParseIP("172.217.31.1"), "google.com", "alt4.aspmx.l.google.com",
 		WithResolver(r),
-		//WithListener(p),
+		// WithListener(p),
 	)
 	if err != nil {
 		t.Fatal(res, s, err)

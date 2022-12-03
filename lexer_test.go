@@ -30,7 +30,6 @@ func TestLexerNext(t *testing.T) {
 	if l.start != 0 {
 		t.Error("For record ", spfRecord, " lexer.start should be equal to 0")
 	}
-
 }
 
 func TestLexerScanIdent(t *testing.T) {
@@ -88,50 +87,77 @@ func TestLexFunc(t *testing.T) {
 	versionToken := &token{tVersion, qPlus, "spf1"}
 
 	testpairs := []TestPair{
-		{"v=spf1 a:127.0.0.1",
+		{
+			"v=spf1 a:127.0.0.1",
 			[]*token{
 				versionToken,
-				{tA, qPlus, "127.0.0.1"}}},
-		{"v=spf1 ip4:127.0.0.1 -all",
+				{tA, qPlus, "127.0.0.1"},
+			},
+		},
+		{
+			"v=spf1 ip4:127.0.0.1 -all",
 			[]*token{
 				versionToken,
 				{tIP4, qPlus, "127.0.0.1"},
-				{tAll, qMinus, ""}}},
-		{"v=spf1  -ptr:arpa.1.0.0.127   -all  ",
+				{tAll, qMinus, ""},
+			},
+		},
+		{
+			"v=spf1  -ptr:arpa.1.0.0.127   -all  ",
 			[]*token{
 				versionToken,
 				{tPTR, qMinus, "arpa.1.0.0.127"},
-				{tAll, qMinus, ""}}},
-		{"v=spf1  ~ip6:2001:db8::cd30 ?all  ",
+				{tAll, qMinus, ""},
+			},
+		},
+		{
+			"v=spf1  ~ip6:2001:db8::cd30 ?all  ",
 			[]*token{
 				versionToken,
 				{tIP6, qTilde, "2001:db8::cd30"},
-				{tAll, qQuestionMark, ""}}},
-		{"v=spf1  include:example.org -all  ",
+				{tAll, qQuestionMark, ""},
+			},
+		},
+		{
+			"v=spf1  include:example.org -all  ",
 			[]*token{
 				versionToken,
 				{tInclude, qPlus, "example.org"},
-				{tAll, qMinus, ""}}},
-		{"v=spf1  include=example.org -all  ",
+				{tAll, qMinus, ""},
+			},
+		},
+		{
+			"v=spf1  include=example.org -all  ",
 			[]*token{
 				versionToken,
 				{tErr, qErr, "include=example.org"},
-				{tAll, qMinus, ""}}},
-		{"v=spf1  exists:%{ir}.%{l1r+-}._spf.%{d} +all",
+				{tAll, qMinus, ""},
+			},
+		},
+		{
+			"v=spf1  exists:%{ir}.%{l1r+-}._spf.%{d} +all",
 			[]*token{
 				versionToken,
 				{tExists, qPlus, "%{ir}.%{l1r+-}._spf.%{d}"},
-				{tAll, qPlus, ""}}},
-		{"v=spf1  redirect=_spf.example.org",
+				{tAll, qPlus, ""},
+			},
+		},
+		{
+			"v=spf1  redirect=_spf.example.org",
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.org"}}},
-		{"v=spf1 mx -all exp=explain._spf.%{d}",
+				{tRedirect, qPlus, "_spf.example.org"},
+			},
+		},
+		{
+			"v=spf1 mx -all exp=explain._spf.%{d}",
 			[]*token{
 				versionToken,
 				{tMX, qPlus, ""},
 				{tAll, qMinus, ""},
-				{tExp, qPlus, "explain._spf.%{d}"}}},
+				{tExp, qPlus, "explain._spf.%{d}"},
+			},
+		},
 	}
 
 	for _, testpair := range testpairs {
@@ -140,5 +166,4 @@ func TestLexFunc(t *testing.T) {
 			t.Error("Expected tokens ", testpair.Tokens, " got ", ltok)
 		}
 	}
-
 }

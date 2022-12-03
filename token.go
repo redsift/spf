@@ -138,7 +138,7 @@ func checkTokenSyntax(tkn *token, delimiter rune) bool {
 		return true
 	}
 
-	//mechanism include must not have empty content
+	// mechanism include must not have empty content
 	if tkn.mechanism == tInclude && tkn.value == "" {
 		return false
 	}

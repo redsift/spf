@@ -82,7 +82,7 @@ func TestMatchingResult(t *testing.T) {
 }
 
 func TestTokensSoriting(t *testing.T) {
-	//stub := "stub"
+	// stub := "stub"
 	versionToken := &token{tVersion, qPlus, "spf1"}
 	type TestCase struct {
 		Tokens      []*token
@@ -503,7 +503,6 @@ func TestParseIp6WithIp4(t *testing.T) {
 }
 
 func TestParseMX(t *testing.T) {
-
 	ips := []net.IP{
 		{172, 18, 0, 2},
 		{172, 20, 20, 20},
@@ -569,7 +568,6 @@ func TestParseMX(t *testing.T) {
 }
 
 func TestParseMXNegativeTests(t *testing.T) {
-
 	/* helper functions */
 
 	hosts := make(map[uint16][]string)
@@ -597,7 +595,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, false},
 		{&token{tMX, qPlus, ""}, Pass, false},
-		//TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
+		// TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
 		{&token{tMX, qPlus, "idontexist"}, Pass, false},
 		{&token{tMX, qMinus, "matching.com"}, Fail, false},
 	}
@@ -619,7 +617,6 @@ func TestParseMXNegativeTests(t *testing.T) {
 /* parseInclude tests */
 
 func TestParseInclude(t *testing.T) {
-
 	/* helper functions */
 
 	dns.HandleFunc("matching.net.", zone(map[uint16][]string{
@@ -683,7 +680,6 @@ func TestParseInclude(t *testing.T) {
 // include term, that refer to non existing domains we are supposed to return
 // (match, Permerror)
 func TestParseIncludeNegative(t *testing.T) {
-
 	/* helper functions */
 
 	hosts := make(map[uint16][]string)
@@ -749,12 +745,10 @@ func TestParseIncludeNegative(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 // TestParseExists executes tests for exists term.
 func TestParseExists(t *testing.T) {
-
 	hosts := make(map[uint16][]string)
 	hosts[dns.TypeA] = []string{
 		"positive.matching.net. 0 IN A 172.20.20.20",
@@ -804,7 +798,6 @@ type parseTestCase struct {
 
 // TestParse tests whole Parser.Parse() method
 func TestParse(t *testing.T) {
-
 	testResolverCache.Purge()
 
 	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
@@ -1017,10 +1010,18 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 		result Result
 		err    string
 	}{
-		{"v=spf1 include:loop.matching.net -all", net.IP{10, 0, 0, 1}, Permerror,
-			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
-		{"v=spf1 redirect=loop.matching.net", net.IP{10, 0, 0, 1}, Permerror,
-			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
+		{
+			"v=spf1 include:loop.matching.net -all",
+			net.IP{10, 0, 0, 1},
+			Permerror,
+			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+		},
+		{
+			"v=spf1 redirect=loop.matching.net",
+			net.IP{10, 0, 0, 1},
+			Permerror,
+			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+		},
 	}
 
 	for _, test := range tests {
@@ -1055,7 +1056,6 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 // TestParseRedirect tests whole parsing behavior with a special testing of
 // redirect modifier
 func TestHandleRedirect(t *testing.T) {
-
 	dns.HandleFunc("matching.net.", zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.net. 0 IN MX 5 matching.net.",
@@ -1178,13 +1178,17 @@ func TestHandleExplanation(t *testing.T) {
 	defer dns.HandleRemove("ip.exp.matching.com.")
 
 	expTestCases := []ExpTestCase{
-		{"v=spf1 -all exp=static.exp.matching.com",
-			"Invalid SPF record"},
-		{"v=spf1 -all exp=ip.exp.matching.com",
-			"127.0.0.1 is not one of matching.com's designated mail servers."},
+		{
+			"v=spf1 -all exp=static.exp.matching.com",
+			"Invalid SPF record",
+		},
+		{
+			"v=spf1 -all exp=ip.exp.matching.com",
+			"127.0.0.1 is not one of matching.com's designated mail servers.",
+		},
 		// TODO(zaccone): Cover this testcase
-		//ExpTestCase{"v=spf1 -all exp=redirect.exp.matching.com",
-		//ExpT"See http://matching.com/why.html?s=&i="},
+		// ExpTestCase{"v=spf1 -all exp=redirect.exp.matching.com",
+		// ExpT"See http://matching.com/why.html?s=&i="},
 	}
 
 	for _, testcase := range expTestCases {
@@ -1321,10 +1325,14 @@ func TestCheckHost_Loops(t *testing.T) {
 		e    error
 		opts []Option
 	}{
-		{"normal mode", "ab.example.com", Permerror,
-			SyntaxError{&token{tInclude, qPlus, "ba.example.com"},
-				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected}},
-			[]Option{WithResolver(testResolver)}},
+		{
+			"normal mode", "ab.example.com", Permerror,
+			SyntaxError{
+				&token{tInclude, qPlus, "ba.example.com"},
+				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
+			},
+			[]Option{WithResolver(testResolver)},
+		},
 		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
 		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}

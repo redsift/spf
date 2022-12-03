@@ -12,7 +12,7 @@ import (
 )
 
 func ExamplePrinter() {
-	var dump = []byte(`[
+	dump := []byte(`[
 		";aspmx2.googlemail.com.   IN AAAA", "tZyBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQKgAUUEAQDAUAAAAAAAAAGw==",
 		";alt2.aspmx.l.google.com. IN A",    "rgaBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAASQABEp9yBo=",
 		";alt1.aspmx.l.google.com. IN A",    "t8eBgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAAJgABEDpoRo=",
@@ -131,14 +131,13 @@ func ExamplePrinter() {
 	//   ~all
 	// = softfail, "4m59s", , <nil>
 	// ## of lookups: 13
-
 }
 
-//b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()
-//println(string(b))
+// b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()
+// println(string(b))
 
 func ExamplePrinter_ipv6nil() {
-	var dump = []byte(`[
+	dump := []byte(`[
 		";_spf.q4press.com. IN TXT",  "FM+BgAABAAEAAAAABF9zcGYHcTRwcmVzcwNjb20AABAAAQRfc3BmB3E0cHJlc3MDY29tAAAQAAEAAAznAB4ddj1zcGYxIGE6d2ViLnE0cHJlc3MuY29tIC1hbGw=",
 		";web.q4press.com.  IN AAAA", "USGBgAABAAEAAQAAA3dlYgdxNHByZXNzA2NvbQAAHAABA3dlYgdxNHByZXNzA2NvbQAABQABAABScQANB3E0cHJlc3MDY29tAAdxNHByZXNzA2NvbQAABgABAAADKwBIBm5zLTU3Mwlhd3NkbnMtMDcDbmV0ABFhd3NkbnMtaG9zdG1hc3RlcgZhbWF6b24DY29tAHga7IoAABwgAAADhAASdQAAAAEs",
 		";q4press.com.      IN TXT",  "xPiBgAABAAIAAAAAB3E0cHJlc3MDY29tAAAQAAEHcTRwcmVzcwNjb20AABAAAQAAADsARURnb29nbGUtc2l0ZS12ZXJpZmljYXRpb249TjRTcU1hMjVVbHRVZjdlNnVBYm1jT2ttOUpCX0FidEw2Q245bjM5eFdRVQdxNHByZXNzA2NvbQAAEAABAAAAOwAlJHY9c3BmMSBpbmNsdWRlOl9zcGYucTRwcmVzcy5jb20gfmFsbA==",

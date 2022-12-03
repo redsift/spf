@@ -88,7 +88,6 @@ func scanText(m *macro, p *parser) (stateFn, error) {
 	for {
 
 		r, err := m.next()
-
 		if err != nil {
 			m.output = append(m.output, m.input[m.start:m.pos])
 			m.moveon()
@@ -174,7 +173,7 @@ func scanMacroPartial(m *macro, p *parser) (stateFn, error) {
 	}
 	var curItem item
 
-	//var err error
+	// var err error
 	var result string
 
 	switch r {
@@ -236,7 +235,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	}
 	var curItem item
 
-	//var err error
+	// var err error
 	var result string
 	var email *addrSpec
 

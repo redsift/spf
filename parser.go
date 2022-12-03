@@ -118,7 +118,7 @@ func newParser(opts ...Option) *parser {
 // during initial DNS lookup.
 func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
-		//mechanisms: make([]*token, 0, 10),
+		// mechanisms: make([]*token, 0, 10),
 		resolver:      NewLimitedResolver(&DNSResolver{}, 10, 10),
 		options:       opts,
 		visited:       visited,
@@ -388,8 +388,10 @@ func (p *parser) parseVersion(t *token) (bool, Result, error) {
 	if t.value == "spf1" {
 		return false, None, nil
 	}
-	return true, Permerror, SyntaxError{t,
-		fmt.Errorf("invalid spf qualifier: %v", t.value)}
+	return true, Permerror, SyntaxError{
+		t,
+		fmt.Errorf("invalid spf qualifier: %v", t.value),
+	}
 }
 
 func (p *parser) parseAll(t *token) (bool, Result, error) {
@@ -399,7 +401,6 @@ func (p *parser) parseAll(t *token) (bool, Result, error) {
 		return true, Permerror, SyntaxError{t, err}
 	}
 	return true, result, nil
-
 }
 
 func (p *parser) parseIP4(t *token) (bool, Result, error) {
@@ -529,7 +530,6 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
 	theirResult, _, _, err := p.checkHost(p.ip, domain, p.sender)
-
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
 	  | A recursive check_host() result | Causes the "include" mechanism  |
@@ -549,9 +549,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/
-
-	if err != nil {
+	*/ if err != nil {
 		err = SyntaxError{t, err}
 	}
 
@@ -570,7 +568,6 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	default: // this should actually never happen; but better error than panic
 		return true, Permerror, fmt.Errorf("internal error: unknown result %s for %s", theirResult, t)
 	}
-
 }
 
 func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
@@ -633,7 +630,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	}
 
 	if result, _, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
-		//TODO(zaccone): confirm result value
+		// TODO(zaccone): confirm result value
 		result = Permerror
 	} else if result == None || result == Permerror {
 		// See RFC7208, section 6.1

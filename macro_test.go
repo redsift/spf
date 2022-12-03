@@ -1,11 +1,9 @@
 package spf
 
 import (
+	"fmt"
 	"net"
 	"testing"
-
-	"fmt"
-
 	"time"
 
 	"github.com/miekg/dns"
@@ -67,7 +65,6 @@ func TestMacroIteration(t *testing.T) {
 			got, err := parseMacroToken(
 				newParser(WithResolver(testResolver)).with(stub, test.sender, test.domain, test.addr),
 				&token{mechanism: tExp, qualifier: qMinus, value: test.macro})
-
 			if err != nil {
 				t.Errorf("'%s' err=%s", test.macro, err)
 			}
@@ -97,15 +94,23 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 		{"%{lr}", "strong-bad"},
 		{"%{lr-}", "bad.strong"},
 		{"%{l1r-}", "strong"},
-		{"%{ir}.%{v}._spf.%{d2}",
-			"3.2.0.192.in-addr._spf.example.com"},
+		{
+			"%{ir}.%{v}._spf.%{d2}",
+			"3.2.0.192.in-addr._spf.example.com",
+		},
 		{"%{lr-}.lp._spf.%{d2}", "bad.strong.lp._spf.example.com"},
-		{"%{lr-}.lp.%{ir}.%{v}._spf.%{d2}",
-			"bad.strong.lp.3.2.0.192.in-addr._spf.example.com"},
-		{"%{ir}.%{v}.%{l1r-}.lp._spf.%{d2}",
-			"3.2.0.192.in-addr.strong.lp._spf.example.com"},
-		{"%{d2}.trusted-domains.example.net",
-			"example.com.trusted-domains.example.net"},
+		{
+			"%{lr-}.lp.%{ir}.%{v}._spf.%{d2}",
+			"bad.strong.lp.3.2.0.192.in-addr._spf.example.com",
+		},
+		{
+			"%{ir}.%{v}.%{l1r-}.lp._spf.%{d2}",
+			"3.2.0.192.in-addr.strong.lp._spf.example.com",
+		},
+		{
+			"%{d2}.trusted-domains.example.net",
+			"example.com.trusted-domains.example.net",
+		},
 		{"%{S}", "strong-bad@email.example.com"},
 		{"%{O}", "email.example.com"},
 		{"%{D}", "email.example.com"},
@@ -115,8 +120,10 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 		{"%{DR}", "com.example.email"},
 		{"%{D2R}", "example.email"},
 		{"%{L}", "strong-bad"},
-		{"%{IR}.%{V}._spf.%{D2}",
-			"3.2.0.192.in-addr._spf.example.com"},
+		{
+			"%{IR}.%{V}._spf.%{D2}",
+			"3.2.0.192.in-addr._spf.example.com",
+		},
 	}
 
 	parser := newParser(WithResolver(testResolver)).
@@ -307,13 +314,12 @@ func TestMacro_Domains(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, exp, err, _ :=
-				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
-					HeloDomain(test.helo),
-					EvaluatedOn(time.Unix(1, 0)),
-					ReceivingFQDN(test.receivingFQDN)).
-					with(test.query, "a.test", "c.test", net.ParseIP("1000:0000:0000:0000:0000:0000:0000:0001")).
-					check()
+			got, exp, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+				HeloDomain(test.helo),
+				EvaluatedOn(time.Unix(1, 0)),
+				ReceivingFQDN(test.receivingFQDN)).
+				with(test.query, "a.test", "c.test", net.ParseIP("1000:0000:0000:0000:0000:0000:0000:0001")).
+				check()
 			if test.wantErr != (err != nil) {
 				t.Errorf("%q err=%s", test.query, err)
 			}

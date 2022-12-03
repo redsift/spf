@@ -5,10 +5,9 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
-
-	"sync"
 
 	"github.com/redsift/spf"
 )
@@ -74,11 +73,11 @@ func (p *Printer) Directive(unused bool, qualifier, mechanism, value, effectiveV
 }
 
 func (p *Printer) NonMatch(qualifier, mechanism, value string, result spf.Result, err error) {
-	//fmt.Fprintf(p.w, "%sNON-MATCH: %s, %v\n", strings.Repeat("  ", p.c), result, err)
+	// fmt.Fprintf(p.w, "%sNON-MATCH: %s, %v\n", strings.Repeat("  ", p.c), result, err)
 }
 
 func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, explanation string, ttl time.Duration, err error) {
-	//fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
+	// fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
 }
 
 func (p *Printer) LookupTXT(name string) ([]string, time.Duration, error) {

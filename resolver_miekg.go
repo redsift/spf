@@ -188,7 +188,6 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, time.Duration, erro
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
 func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
-
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
