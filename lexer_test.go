@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-type LexerTest struct {
-	input  string
-	tokens []*token
-}
-
 func TestLexerNext(t *testing.T) {
 	spfRecord := "a:127.0.0.1"
 	l := &lexer{0, 0, 0, len(spfRecord), spfRecord}

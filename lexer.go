@@ -102,7 +102,7 @@ loop:
 			if hasQualifier {
 				t.qualifier = qErr // multiple qualifiers
 			} else {
-				t.qualifier, _ = qualifiers[ch]
+				t.qualifier = qualifiers[ch]
 				hasQualifier = true
 			}
 			l.start = cursor

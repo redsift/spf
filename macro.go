@@ -31,7 +31,7 @@ type macro struct {
 }
 
 func newMacro(input string, exp bool) *macro {
-	return &macro{0, 0, 0, len(input), input, make([]string, 0, 0), nil, exp, 0}
+	return &macro{0, 0, 0, len(input), input, make([]string, 0), nil, exp, 0}
 }
 
 type stateFn func(*macro, *parser) (stateFn, error)

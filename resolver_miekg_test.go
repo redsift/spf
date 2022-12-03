@@ -74,7 +74,7 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	start = time.Now()
-	_, _, e = testResolver.Exists("slow.test.")
+	testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
 	if d < latency {

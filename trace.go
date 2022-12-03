@@ -111,6 +111,6 @@ func (r *Trace) ReceivedSPF() string {
 	scol = writeKV(scol, "helo", r.Helo)
 	scol = writeKV(scol, "envelope-from", r.EnvelopeFrom)
 	scol = writeKV(scol, "receiver", r.Receiver)
-	scol = writeKV(scol, "mechanism", r.Mechanism)
+	writeKV(scol, "mechanism", r.Mechanism)
 	return b.String()
 }
