@@ -2,35 +2,49 @@ package spf
 
 import (
 	"fmt"
-	"github.com/bluele/gcache"
+	"github.com/dgraph-io/ristretto"
 	"github.com/miekg/dns"
-	testing2 "github.com/redsift/spf/v2/testing"
+	. "github.com/redsift/spf/v2/testing"
+	"github.com/redsift/spf/v2/z"
 	"os"
 	"testing"
+	"time"
 )
 
 var (
+	testNameServer    *dns.Server
+	testResolverCache *ristretto.Cache
 	testResolver      Resolver
-	testResolverCache gcache.Cache
 )
 
 func TestMain(m *testing.M) {
-	s, err := testing2.StartDNSServer("udp", "127.0.0.1:0")
+	var err error
+
+	testNameServer, err = StartDNSServer("udp", "127.0.0.1:0")
 	if err != nil {
 		panic(fmt.Errorf("unable to run local DNS server: %w", err))
 	}
 
-	dns.HandleFunc(".", testing2.RootZone)
+	dns.HandleFunc(".", RootZone)
 
 	defer func() {
 		dns.HandleRemove(".")
-		_ = s.Shutdown()
+		testNameServer.Shutdown()
 	}()
 
-	testResolverCache = gcache.New(100).Simple().Build()
+	testResolverCache = z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(100 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		Metrics:     true,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+	})
 
-	testResolver, _ = NewMiekgDNSResolver(s.PacketConn.LocalAddr().String(),
+	testResolver, _ = NewMiekgDNSResolver(testNameServer.PacketConn.LocalAddr().String(),
+		MiekgDNSMinSaneTTL(100*time.Millisecond),
 		MiekgDNSCache(testResolverCache),
 		MiekgDNSParallelism(1))
+
 	os.Exit(m.Run())
 }

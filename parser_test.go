@@ -799,7 +799,7 @@ type parseTestCase struct {
 
 // TestParse tests whole Parser.Parse() method
 func TestParse(t *testing.T) {
-	testResolverCache.Purge()
+	testResolverCache.Clear()
 
 	dns.HandleFunc("matching.com.", Zone(map[uint16][]string{
 		dns.TypeMX: {
@@ -982,7 +982,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestCheckHost_RecursionLoop(t *testing.T) {
-	testResolverCache.Purge()
+	testResolverCache.Clear()
 
 	dns.HandleFunc("loop.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {

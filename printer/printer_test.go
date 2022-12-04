@@ -3,13 +3,13 @@ package printer
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dgraph-io/ristretto"
+	"github.com/redsift/spf/v2/z"
 	"log"
 	"net"
 	"os"
 
 	"github.com/redsift/spf/v2"
-
-	"github.com/bluele/gcache"
 )
 
 func ExamplePrinter() {
@@ -37,13 +37,23 @@ func ExamplePrinter() {
 		log.Fatal(err)
 	}
 
-	c := gcache.New(100).Build()
+	c := z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(100 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		Metrics:     true,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+	})
 	// use resolver with cache and no parallelism
 	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
 	if err != nil {
 		log.Fatalf("error creating resolver: %s", err)
 	}
+
 	d.ForEach(r.CacheResponse)
+
+	c.Wait()
 
 	// create a printer
 	p := New(os.Stdout, r)
@@ -151,13 +161,23 @@ func ExamplePrinter_ipv6nil() {
 		log.Fatal(err)
 	}
 
-	c := gcache.New(100).Build()
+	c := z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(100 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		Metrics:     true,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+	})
 	// use resolver with cache and no parallelism
 	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
 	if err != nil {
 		log.Fatalf("error creating resolver: %s", err)
 	}
+
 	d.ForEach(r.CacheResponse)
+
+	c.Wait()
 
 	// create a printer
 	p := New(os.Stdout, r)

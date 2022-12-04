@@ -223,7 +223,7 @@ func TestMacro_Domains(t *testing.T) {
 	// be the same as the <domain> argument when check_host() is initially
 	// evaluated.  In most other cases it will be the same (see Section 5.2
 	// below).
-	testResolverCache.Purge()
+	testResolverCache.Clear()
 
 	dns.HandleFunc("a.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {

@@ -1,12 +1,16 @@
 package spf
 
 import (
+	"github.com/dgraph-io/ristretto"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/redsift/spf/v2/testing"
+	"github.com/redsift/spf/v2/z"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
 )
 
@@ -37,12 +41,16 @@ func TestMiekgDNSResolver_LookupTXTStrict_Multiline(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
-	latency := 500 * time.Millisecond
+	testResolverCache.Clear()
+
+	testResolverCache.Wait()
+
+	delay := 500 * time.Millisecond
 	dns.HandleFunc("slow.test.", WithDelay(Zone(map[uint16][]string{
 		dns.TypeA: {
 			`slow.test. 2 IN A 127.0.0.1`,
 		},
-	}), latency))
+	}), delay))
 	defer dns.HandleRemove("slow.test.")
 
 	start := time.Now()
@@ -57,8 +65,11 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 		t.Fatal(e)
 	}
 
-	if d < latency {
-		t.Errorf("unexpected quick response: want=%v, got=%v", latency, d)
+	// Wait for the cache to be populated
+	testResolverCache.Wait()
+
+	if d < delay {
+		t.Errorf("unexpected quick response: want=%v, got=%v", delay, d)
 	}
 
 	start = time.Now()
@@ -69,17 +80,19 @@ func TestMiekgDNSResolver_Exists_Cached(t *testing.T) {
 		t.Fatal(e)
 	}
 
-	if d > latency {
-		t.Errorf("too slow response for cached response: want < %v, got=%v", latency, d)
+	if d > delay {
+		t.Errorf("too slow response for cached response: want < %v, got=%v", delay, d)
 	}
 
+	// Wait for the cache to be expired
 	time.Sleep(2 * time.Second)
+
 	start = time.Now()
 	testResolver.Exists("slow.test.")
 	d = time.Since(start)
 
-	if d < latency {
-		t.Errorf("quick response for expired cache: want=%v, got=%v", latency, d)
+	if d < delay {
+		t.Errorf("quick response for expired cache: want=%v, got=%v", delay, d)
 	}
 }
 
@@ -103,40 +116,54 @@ func TestMiekgDNSResolver_LookupTXT_Multiline(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
-	dnsCache := gcache.New(10).LRU().Build()
+	var got []string
+
+	dnsCache := z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(10 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+		OnEvict: func(item *ristretto.Item) {
+			if item.Value == nil {
+				return
+			}
+			got = append(got, item.Value.(*dns.Msg).Question[0].Name)
+		},
+	})
+
 	client := new(dns.Client)
 	client.Timeout = 800 * time.Millisecond
-	var l []Resolver
-	for _, a := range []string{"8.8.8.8:53", "8.8.4.4:53"} {
-		r, err := NewMiekgDNSResolver(a, MiekgDNSClient(client), MiekgDNSCache(dnsCache))
-		if err != nil {
-			t.Fatalf("error creating resolver: %s", err)
-		}
-		l = append(l, r)
-	}
-	r := NewRetryResolver(l, BackoffFactor(1.2))
 
-	// p := &printer{w: os.Stdout}
+	r, err := NewMiekgDNSResolver("8.8.8.8:53", MiekgDNSClient(client), MiekgDNSCache(dnsCache))
+	if err != nil {
+		t.Fatalf("error creating resolver: %s", err)
+	}
 
 	// 172.217.31.1 is an address from _netblocks3.google.com., so checking it should unfold _spf.google.com
-	res, s, _, err := CheckHost(net.ParseIP("172.217.31.1"), "google.com", "alt4.aspmx.l.google.com",
-		WithResolver(r),
-		// WithListener(p),
-	)
+	res, s, _, err := CheckHost(net.ParseIP("172.217.31.1"), "google.com", "alt4.aspmx.l.google.com", WithResolver(r))
 	if err != nil {
 		t.Fatal(res, s, err)
 	}
 
-	if len(dnsCache.GetALL(true)) != 5 {
-		// google.com.
-		// _spf.google.com.
-		// _netblocks.google.com.
-		// _netblocks2.google.com.
-		// _netblocks3.google.com.
-		for k, v := range dnsCache.GetALL(true) {
-			t.Logf("k=%q, v=%q", k, v.(*dns.Msg).Answer)
-		}
-		t.Fatal("not all requests cached")
+	// Wait for the cache to be populated
+	dnsCache.Wait()
+
+	// Trigger a "quantum" reading of the cache values
+	dnsCache.Clear()
+
+	want := []string{
+		"google.com.",
+		"_spf.google.com.",
+		"_netblocks.google.com.",
+		"_netblocks2.google.com.",
+		"_netblocks3.google.com.",
+	}
+
+	less := func(l, r string) bool { return strings.Compare(l, r) < 0 }
+
+	if diff := cmp.Diff(want, got, cmpopts.SortSlices(less)); diff != "" {
+		t.Errorf("cached keys mismatch (-want +got):\n%s", diff)
 	}
 }
 
