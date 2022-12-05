@@ -2,8 +2,8 @@ package z
 
 import (
 	"github.com/cespare/xxhash"
-	"github.com/dgraph-io/ristretto"
 	"github.com/miekg/dns"
+	"github.com/outcaste-io/ristretto"
 )
 
 func MsgCost(v any) int64 {

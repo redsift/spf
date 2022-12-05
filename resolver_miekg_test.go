@@ -1,9 +1,9 @@
 package spf
 
 import (
-	"github.com/dgraph-io/ristretto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/outcaste-io/ristretto"
 	. "github.com/redsift/spf/v2/testing"
 	"github.com/redsift/spf/v2/z"
 	"net"
