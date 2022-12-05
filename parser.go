@@ -68,14 +68,14 @@ func Unwrap(e error) (*token, error, bool) {
 	return nil, e, false
 }
 
-func Cause(e error) (error, string) {
+func Cause(e error) (string, error) {
 	var t, lastToken *token
 	for next := true; next; t, e, next = Unwrap(e) {
 		if t != nil {
 			lastToken = t
 		}
 	}
-	return e, lastToken.String()
+	return lastToken.String(), e
 }
 
 func (e SyntaxError) Cause() error {
@@ -118,7 +118,7 @@ func newParser(opts ...Option) *parser {
 // during initial DNS lookup.
 func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
-		//mechanisms: make([]*token, 0, 10),
+		// mechanisms: make([]*token, 0, 10),
 		resolver:      NewLimitedResolver(&DNSResolver{}, 10, 10),
 		options:       opts,
 		visited:       visited,
@@ -186,7 +186,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", "", ErrSPFNotFound
 	}
 
-	r, expl, err, u = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
+	r, expl, u, err = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -208,7 +208,7 @@ type unused struct {
 // there is any syntax error) and starts evaluating
 // each token (from left to right). Once a token matches parse stops and
 // returns matched result.
-func (p *parser) check() (Result, string, error, unused) {
+func (p *parser) check() (Result, string, unused, error) {
 	p.visited.push(p.domain)
 	defer p.visited.pop()
 
@@ -225,7 +225,7 @@ func (p *parser) check() (Result, string, error, unused) {
 
 	mechanisms, redirect, explanation, err := sortTokens(tokens)
 	if err != nil {
-		return Permerror, "", err, unused{mechanisms, redirect}
+		return Permerror, "", unused{mechanisms, redirect}, err
 	}
 
 	var all bool
@@ -260,13 +260,13 @@ func (p *parser) check() (Result, string, error, unused) {
 				s, err = p.handleExplanation(explanation)
 			}
 			p.fireMatch(token, result, s, ttl, err)
-			return result, s, err, unused{mechanisms[i+1:], redirect}
+			return result, s, unused{mechanisms[i+1:], redirect}, err
 		}
 		p.fireNonMatch(token, result, err)
 
 		// in walker-mode we want to count number of errors and check the counter against some threshold
 		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
-			return unreliableResult, "", ErrTooManyErrors, unused{mechanisms[i+1:], redirect}
+			return unreliableResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
 		}
 
 		// all expected errors should be thrown with matches=true
@@ -278,9 +278,9 @@ func (p *parser) check() (Result, string, error, unused) {
 	}
 
 	if p.ignoreMatches {
-		return unreliableResult, "", ErrUnreliableResult, unused{}
+		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
-	return result, "", err, unused{}
+	return result, "", unused{}, err
 }
 
 func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
@@ -388,8 +388,10 @@ func (p *parser) parseVersion(t *token) (bool, Result, error) {
 	if t.value == "spf1" {
 		return false, None, nil
 	}
-	return true, Permerror, SyntaxError{t,
-		fmt.Errorf("invalid spf qualifier: %v", t.value)}
+	return true, Permerror, SyntaxError{
+		t,
+		fmt.Errorf("invalid spf qualifier: %v", t.value),
+	}
 }
 
 func (p *parser) parseAll(t *token) (bool, Result, error) {
@@ -399,7 +401,6 @@ func (p *parser) parseAll(t *token) (bool, Result, error) {
 		return true, Permerror, SyntaxError{t, err}
 	}
 	return true, result, nil
-
 }
 
 func (p *parser) parseIP4(t *token) (bool, Result, error) {
@@ -529,7 +530,6 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
 	}
 	theirResult, _, _, err := p.checkHost(p.ip, domain, p.sender)
-
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
 	  | A recursive check_host() result | Causes the "include" mechanism  |
@@ -549,9 +549,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/
-
-	if err != nil {
+	*/if err != nil {
 		err = SyntaxError{t, err}
 	}
 
@@ -570,7 +568,6 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	default: // this should actually never happen; but better error than panic
 		return true, Permerror, fmt.Errorf("internal error: unknown result %s for %s", theirResult, t)
 	}
-
 }
 
 func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
@@ -633,7 +630,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	}
 
 	if result, _, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
-		//TODO(zaccone): confirm result value
+		// TODO(zaccone): confirm result value
 		result = Permerror
 	} else if result == None || result == Permerror {
 		// See RFC7208, section 6.1

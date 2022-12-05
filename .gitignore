@@ -4,5 +4,6 @@ _*
 !.circleci
 !.gitignore
 !_etc/
+!.github/
 go.work
 go.work.sum

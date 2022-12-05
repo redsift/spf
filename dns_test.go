@@ -114,20 +114,34 @@ func TestTruncateFQDN(t *testing.T) {
 	}{
 		{"1.com", "1.com", false},
 		{z(254), "", true},
-		{strings.Join([]string{"253", z(245), "com"}, "."),
-			strings.Join([]string{"253", z(245), "com"}, "."), false},
-		{strings.Join([]string{"254", z(246), "com"}, "."),
-			strings.Join([]string{z(246), "com"}, "."), false},
-		{strings.Join([]string{"254dot", z(242), "com."}, "."),
-			strings.Join([]string{"254dot", z(242), "com."}, "."), false},
-		{strings.Join([]string{"a", "b", z(247), "com"}, "."),
-			strings.Join([]string{"b", z(247), "com"}, "."), false},
-		{strings.Join([]string{"a", "bb", z(247), "com"}, "."),
-			strings.Join([]string{z(247), "com"}, "."), false},
-		{"net.._l",
-			"", true},
-		{strings.Join([]string{"64dotdot253.com", z(200), "", z(64), "com"}, "."),
-			"", true},
+		{
+			strings.Join([]string{"253", z(245), "com"}, "."),
+			strings.Join([]string{"253", z(245), "com"}, "."), false,
+		},
+		{
+			strings.Join([]string{"254", z(246), "com"}, "."),
+			strings.Join([]string{z(246), "com"}, "."), false,
+		},
+		{
+			strings.Join([]string{"254dot", z(242), "com."}, "."),
+			strings.Join([]string{"254dot", z(242), "com."}, "."), false,
+		},
+		{
+			strings.Join([]string{"a", "b", z(247), "com"}, "."),
+			strings.Join([]string{"b", z(247), "com"}, "."), false,
+		},
+		{
+			strings.Join([]string{"a", "bb", z(247), "com"}, "."),
+			strings.Join([]string{z(247), "com"}, "."), false,
+		},
+		{
+			"net.._l",
+			"", true,
+		},
+		{
+			strings.Join([]string{"64dotdot253.com", z(200), "", z(64), "com"}, "."),
+			"", true,
+		},
 	}
 
 	const skipAllBut = -1

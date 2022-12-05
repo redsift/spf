@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/redsift/spf"
+	"github.com/redsift/spf/v2"
 )
 
 func TestResult_MarshalJSON(t *testing.T) {
@@ -97,6 +97,5 @@ func TestCheckHost_Panic(t *testing.T) {
 		for i := 0; i < 500; i++ {
 			_, _, _, _ = spf.CheckHost(net.ParseIP("0.0.0.0"), "mail.1stopnetworks.bm", "mail.1stopnetworks.bm", spf.WithResolver(r))
 		}
-
 	}()
 }

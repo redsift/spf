@@ -49,5 +49,4 @@ func TestTokenSyntaxValidation(t *testing.T) {
 				*token, delimiter, !expected, expected)
 		}
 	}
-
 }

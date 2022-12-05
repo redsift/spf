@@ -1,19 +1,19 @@
 package spf
 
 import (
+	"github.com/redsift/spf/v2/z"
 	"net"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/bluele/gcache"
 	"github.com/miekg/dns"
 )
 
 type MiekgDNSResolverOption func(r *miekgDNSResolver)
 
 // MiekgDNSParallelism change parallelism level of matching IP and MX
-// Anything less than 1 means unlimited
+// Anything less than 1 used as unlimited
 func MiekgDNSParallelism(n int) MiekgDNSResolverOption {
 	return func(r *miekgDNSResolver) {
 		if n < 1 {
@@ -23,12 +23,18 @@ func MiekgDNSParallelism(n int) MiekgDNSResolverOption {
 	}
 }
 
-func MiekgDNSCache(c gcache.Cache) MiekgDNSResolverOption {
+func MiekgDNSCache(c z.Cache) MiekgDNSResolverOption {
 	return func(r *miekgDNSResolver) {
 		if c == nil {
 			return
 		}
 		r.cache = c
+	}
+}
+
+func MiekgDNSMinSaneTTL(d time.Duration) MiekgDNSResolverOption {
+	return func(r *miekgDNSResolver) {
+		r.minSaneTTL = d
 	}
 }
 
@@ -67,7 +73,8 @@ func NewMiekgDNSResolver(addr string, opts ...MiekgDNSResolverOption) (*miekgDNS
 type miekgDNSResolver struct {
 	mu          sync.Mutex
 	dnsClients  map[string]*dns.Client
-	cache       gcache.Cache
+	cache       z.Cache
+	minSaneTTL  time.Duration
 	serverAddr  string
 	parallelism int
 }
@@ -76,8 +83,8 @@ func (r *miekgDNSResolver) cachedResponse(req *dns.Msg) (*dns.Msg, bool) {
 	if r.cache == nil {
 		return nil, false
 	}
-	res, err := r.cache.Get(req.Question[0]) // dns.Question is comparable https://golang.org/ref/spec#Comparison_operators
-	if err != nil {
+	res, found := r.cache.Get(req.Question[0]) // dns.Question is comparable https://golang.org/ref/spec#Comparison_operators
+	if !found {
 		return nil, false
 	}
 	return res.(*dns.Msg), true
@@ -91,7 +98,7 @@ func (r *miekgDNSResolver) CacheResponse(res *dns.Msg) {
 	}
 	if len(res.Answer) == 0 {
 		// TODO get TTL from SOA and limit it between 60s and 3600s
-		_ = r.cache.SetWithExpire(res.Question[0], res, 60*time.Second)
+		r.cache.SetWithTTL(res.Question[0], res, int64(res.Len()), 60*time.Second)
 		return
 	}
 	var ttl uint32 = maxUint32
@@ -100,10 +107,13 @@ func (r *miekgDNSResolver) CacheResponse(res *dns.Msg) {
 			ttl = d
 		}
 	}
-	if ttl == 0 {
-		return
+
+	d := time.Duration(ttl) * time.Second
+	if r.minSaneTTL > 0 && d < r.minSaneTTL {
+		d = r.minSaneTTL
 	}
-	_ = r.cache.SetWithExpire(res.Question[0], res, time.Duration(ttl)*time.Second)
+
+	_ = r.cache.SetWithTTL(res.Question[0], res, int64(res.Len()), d)
 }
 
 // If the DNS lookup returns a server failure (RCODE 2) or some other
@@ -188,7 +198,6 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, time.Duration, erro
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
 func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
-
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 

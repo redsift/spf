@@ -3,16 +3,17 @@ package printer
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/outcaste-io/ristretto"
+	"github.com/redsift/spf/v2/z"
 	"log"
 	"net"
 	"os"
 
-	"github.com/bluele/gcache"
-	"github.com/redsift/spf"
+	"github.com/redsift/spf/v2"
 )
 
 func ExamplePrinter() {
-	var dump = []byte(`[
+	dump := []byte(`[
 		";aspmx2.googlemail.com.   IN AAAA", "tZyBgAABAAEAAAAABmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABBmFzcG14Mgpnb29nbGVtYWlsA2NvbQAAHAABAAABJAAQKgAUUEAQDAUAAAAAAAAAGw==",
 		";alt2.aspmx.l.google.com. IN A",    "rgaBgAABAAEAAAAABGFsdDIFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MgVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAASQABEp9yBo=",
 		";alt1.aspmx.l.google.com. IN A",    "t8eBgAABAAEAAAAABGFsdDEFYXNwbXgBbAZnb29nbGUDY29tAAABAAEEYWx0MQVhc3BteAFsBmdvb2dsZQNjb20AAAEAAQAAAJgABEDpoRo=",
@@ -36,13 +37,23 @@ func ExamplePrinter() {
 		log.Fatal(err)
 	}
 
-	c := gcache.New(100).Build()
+	c := z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(100 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		Metrics:     true,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+	})
 	// use resolver with cache and no parallelism
 	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
 	if err != nil {
 		log.Fatalf("error creating resolver: %s", err)
 	}
+
 	d.ForEach(r.CacheResponse)
+
+	c.Wait()
 
 	// create a printer
 	p := New(os.Stdout, r)
@@ -131,14 +142,13 @@ func ExamplePrinter() {
 	//   ~all
 	// = softfail, "4m59s", , <nil>
 	// ## of lookups: 13
-
 }
 
-//b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()
-//println(string(b))
+// b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()
+// println(string(b))
 
 func ExamplePrinter_ipv6nil() {
-	var dump = []byte(`[
+	dump := []byte(`[
 		";_spf.q4press.com. IN TXT",  "FM+BgAABAAEAAAAABF9zcGYHcTRwcmVzcwNjb20AABAAAQRfc3BmB3E0cHJlc3MDY29tAAAQAAEAAAznAB4ddj1zcGYxIGE6d2ViLnE0cHJlc3MuY29tIC1hbGw=",
 		";web.q4press.com.  IN AAAA", "USGBgAABAAEAAQAAA3dlYgdxNHByZXNzA2NvbQAAHAABA3dlYgdxNHByZXNzA2NvbQAABQABAABScQANB3E0cHJlc3MDY29tAAdxNHByZXNzA2NvbQAABgABAAADKwBIBm5zLTU3Mwlhd3NkbnMtMDcDbmV0ABFhd3NkbnMtaG9zdG1hc3RlcgZhbWF6b24DY29tAHga7IoAABwgAAADhAASdQAAAAEs",
 		";q4press.com.      IN TXT",  "xPiBgAABAAIAAAAAB3E0cHJlc3MDY29tAAAQAAEHcTRwcmVzcwNjb20AABAAAQAAADsARURnb29nbGUtc2l0ZS12ZXJpZmljYXRpb249TjRTcU1hMjVVbHRVZjdlNnVBYm1jT2ttOUpCX0FidEw2Q245bjM5eFdRVQdxNHByZXNzA2NvbQAAEAABAAAAOwAlJHY9c3BmMSBpbmNsdWRlOl9zcGYucTRwcmVzcy5jb20gfmFsbA==",
@@ -151,13 +161,23 @@ func ExamplePrinter_ipv6nil() {
 		log.Fatal(err)
 	}
 
-	c := gcache.New(100).Build()
+	c := z.MustRistrettoCache(&ristretto.Config{
+		NumCounters: int64(100 * 10),
+		MaxCost:     1 << 20,
+		BufferItems: 64,
+		Metrics:     true,
+		KeyToHash:   z.QuestionToHash,
+		Cost:        z.MsgCost,
+	})
 	// use resolver with cache and no parallelism
 	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1), spf.MiekgDNSCache(c))
 	if err != nil {
 		log.Fatalf("error creating resolver: %s", err)
 	}
+
 	d.ForEach(r.CacheResponse)
+
+	c.Wait()
 
 	// create a printer
 	p := New(os.Stdout, r)

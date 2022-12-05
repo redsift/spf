@@ -160,18 +160,18 @@ func (r *retryResolver) backoff(attempt int) time.Duration {
 	}
 	const maxInt64 = float64(math.MaxInt64 - 512)
 
-	//calculate this duration
+	// calculate this duration
 	minf := float64(r.min)
 	durf := minf * math.Pow(r.factor, float64(attempt))
 	if r.jitter {
 		durf = rand.Float64()*(durf-minf) + minf
 	}
-	//ensure float64 wont overflow int64
+	// ensure float64 wont overflow int64
 	if durf > maxInt64 {
 		return r.max
 	}
 	dur := time.Duration(durf)
-	//keep within bounds
+	// keep within bounds
 	if dur < r.min {
 		return r.min
 	} else if dur > r.max {

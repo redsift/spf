@@ -3,6 +3,7 @@ package spf
 import (
 	"errors"
 	"fmt"
+	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"reflect"
 	"strings"
@@ -82,7 +83,7 @@ func TestMatchingResult(t *testing.T) {
 }
 
 func TestTokensSoriting(t *testing.T) {
-	//stub := "stub"
+	// stub := "stub"
 	versionToken := &token{tVersion, qPlus, "spf1"}
 	type TestCase struct {
 		Tokens      []*token
@@ -266,7 +267,7 @@ func TestParseAll(t *testing.T) {
 }
 
 func TestParseA(t *testing.T) {
-	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"matching.com. 2 IN A 172.20.21.1",
 			"matching.com. 20 IN A 172.18.0.2",
@@ -278,7 +279,7 @@ func TestParseA(t *testing.T) {
 	}))
 	defer dns.HandleRemove("matching.com.")
 
-	dns.HandleFunc("positive.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"positive.matching.com. 2 IN A 172.20.21.1",
 			"positive.matching.com. 20 IN A 172.18.0.2",
@@ -290,21 +291,21 @@ func TestParseA(t *testing.T) {
 	}))
 	defer dns.HandleRemove("positive.matching.com.")
 
-	dns.HandleFunc("negative.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("negative.matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"negative.matching.com. 2 IN A 172.20.21.1",
 		},
 	}))
 	defer dns.HandleRemove("negative.matching.com.")
 
-	dns.HandleFunc("range.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("range.matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"range.matching.com. 2 IN A 172.18.0.2",
 		},
 	}))
 	defer dns.HandleRemove("range.matching.com.")
 
-	dns.HandleFunc("lb.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("lb.matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"lb.matching.com. 2 IN A 172.18.0.2",
 		},
@@ -373,7 +374,7 @@ func TestParseAIpv6(t *testing.T) {
 		"positive.matching.com. 0 IN AAAA 2001:4860:0:2001::68",
 	}
 
-	positiveMatchingCom := zone(hosts)
+	positiveMatchingCom := Zone(hosts)
 	dns.HandleFunc("positive.matching.com.", positiveMatchingCom)
 	defer dns.HandleRemove("positive.matching.com.")
 	dns.HandleFunc("matching.com.", positiveMatchingCom)
@@ -384,7 +385,7 @@ func TestParseAIpv6(t *testing.T) {
 	hosts[dns.TypeA] = []string{
 		"negative.matching.com. 0 IN A 172.20.21.1",
 	}
-	negativeMatchingCom := zone(hosts)
+	negativeMatchingCom := Zone(hosts)
 	dns.HandleFunc("negative.matching.com.", negativeMatchingCom)
 	defer dns.HandleRemove("negative.matching.com.")
 
@@ -503,7 +504,6 @@ func TestParseIp6WithIp4(t *testing.T) {
 }
 
 func TestParseMX(t *testing.T) {
-
 	ips := []net.IP{
 		{172, 18, 0, 2},
 		{172, 20, 20, 20},
@@ -513,7 +513,7 @@ func TestParseMX(t *testing.T) {
 
 	/* helper functions */
 
-	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.com.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.com. 2 IN MX 5 mail.matching.com.",
 			"matching.com. 100 IN MX 10 mail2.matching.com.",
@@ -569,7 +569,6 @@ func TestParseMX(t *testing.T) {
 }
 
 func TestParseMXNegativeTests(t *testing.T) {
-
 	/* helper functions */
 
 	hosts := make(map[uint16][]string)
@@ -588,7 +587,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 		"mail2.matching.com. 0 IN A 172.20.20.20",
 		"mail3.matching.com. 0 IN A 172.100.0.1",
 	}
-	mxMatchingCom := zone(hosts)
+	mxMatchingCom := Zone(hosts)
 	dns.HandleFunc("matching.com.", mxMatchingCom)
 	defer dns.HandleRemove("matching.com.")
 
@@ -597,7 +596,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, false},
 		{&token{tMX, qPlus, ""}, Pass, false},
-		//TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
+		// TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
 		{&token{tMX, qPlus, "idontexist"}, Pass, false},
 		{&token{tMX, qMinus, "matching.com"}, Fail, false},
 	}
@@ -619,10 +618,9 @@ func TestParseMXNegativeTests(t *testing.T) {
 /* parseInclude tests */
 
 func TestParseInclude(t *testing.T) {
-
 	/* helper functions */
 
-	dns.HandleFunc("matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`_spf.matching.net. 0 IN TXT "v=spf1 a:positive.matching.net -a:negative.matching.net ~mx -all"`,
 		},
@@ -683,7 +681,6 @@ func TestParseInclude(t *testing.T) {
 // include term, that refer to non existing domains we are supposed to return
 // (match, Permerror)
 func TestParseIncludeNegative(t *testing.T) {
-
 	/* helper functions */
 
 	hosts := make(map[uint16][]string)
@@ -706,7 +703,7 @@ func TestParseIncludeNegative(t *testing.T) {
 		"mail.matching.net.	0 IN A 173.18.0.2",
 		"mail2.matching.net. 0 IN A 173.20.20.20",
 	}
-	includeMatchingCom := zone(hosts)
+	includeMatchingCom := Zone(hosts)
 	dns.HandleFunc("matching.net.", includeMatchingCom)
 	defer dns.HandleRemove("matching.net.")
 
@@ -749,19 +746,17 @@ func TestParseIncludeNegative(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 // TestParseExists executes tests for exists term.
 func TestParseExists(t *testing.T) {
-
 	hosts := make(map[uint16][]string)
 	hosts[dns.TypeA] = []string{
 		"positive.matching.net. 0 IN A 172.20.20.20",
 		"positive.matching.net. 0 IN A 172.18.0.1",
 		"positive.matching.net. 0 IN A 172.18.0.2",
 	}
-	dns.HandleFunc("positive.matching.net.", zone(hosts))
+	dns.HandleFunc("positive.matching.net.", Zone(hosts))
 	defer dns.HandleRemove("positive.matching.net.")
 
 	hosts = make(map[uint16][]string)
@@ -770,7 +765,7 @@ func TestParseExists(t *testing.T) {
 		"positive.matching.com. 0 IN A 172.18.0.1",
 		"positive.matching.com. 0 IN A 172.18.0.2",
 	}
-	dns.HandleFunc("positive.matching.com.", zone(hosts))
+	dns.HandleFunc("positive.matching.com.", Zone(hosts))
 	defer dns.HandleRemove("positive.matching.com.")
 
 	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", ip)
@@ -804,10 +799,9 @@ type parseTestCase struct {
 
 // TestParse tests whole Parser.Parse() method
 func TestParse(t *testing.T) {
+	testResolverCache.Clear()
 
-	testResolverCache.Purge()
-
-	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.com.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.com. 0 in MX 5 matching.com.",
 		},
@@ -819,7 +813,7 @@ func TestParse(t *testing.T) {
 	}))
 	defer dns.HandleRemove("matching.com.")
 
-	dns.HandleFunc("matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.net.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.net. 0 IN MX 5 matching.net.",
 		},
@@ -830,14 +824,14 @@ func TestParse(t *testing.T) {
 	}))
 	defer dns.HandleRemove("matching.net.")
 
-	dns.HandleFunc("_spf.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("_spf.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"_spf.matching.net. 0 IN TXT \"v=spf1 a:positive.matching.net -a:negative.matching.net ~mx -all\"",
 		},
 	}))
 	defer dns.HandleRemove("_spf.matching.net.")
 
-	dns.HandleFunc("positive.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.matching.net.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"positive.matching.net. 0 IN A 172.100.100.1",
 			"positive.matching.net. 0 IN A 173.18.0.2",
@@ -847,7 +841,7 @@ func TestParse(t *testing.T) {
 	}))
 	defer dns.HandleRemove("positive.matching.net.")
 
-	dns.HandleFunc("negative.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("negative.matching.net.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"negative.matching.net. 0 IN A 172.100.100.1",
 			"negative.matching.net. 0 IN A 173.18.0.2",
@@ -857,42 +851,42 @@ func TestParse(t *testing.T) {
 	}))
 	defer dns.HandleRemove("negative.matching.net.")
 
-	dns.HandleFunc("lb.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("lb.matching.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"lb.matching.com. 0 IN A 172.101.101.1",
 		},
 	}))
 	defer dns.HandleRemove("lb.matching.com.")
 
-	dns.HandleFunc("loop.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("loop.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop.matching.net. 0 IN TXT "v=spf1 include:loop.matching.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("loop.matching.net.")
 
-	dns.HandleFunc("loop.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("loop.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop.matching.com. 0 IN TXT "v=spf1 include:loop.matching.net -all"`,
 		},
 	}))
 	defer dns.HandleRemove("loop.matching.com.")
 
-	dns.HandleFunc("loop2.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("loop2.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop2.matching.net. 0 IN TXT "v=spf1 redirect=loop2.matching.com"`,
 		},
 	}))
 	defer dns.HandleRemove("loop2.matching.net.")
 
-	dns.HandleFunc("loop2.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("loop2.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop2.matching.com. 0 IN TXT "v=spf1 redirect=loop2.matching.net"`,
 		},
 	}))
 	defer dns.HandleRemove("loop2.matching.com.")
 
-	dns.HandleFunc("10.0.0.1.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("10.0.0.1.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`10.0.0.1.matching.com. 0 IN TXT "v=spf1 +all"`,
 		},
@@ -969,7 +963,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -988,23 +982,23 @@ func TestParse(t *testing.T) {
 }
 
 func TestCheckHost_RecursionLoop(t *testing.T) {
-	testResolverCache.Purge()
+	testResolverCache.Clear()
 
-	dns.HandleFunc("loop.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("loop.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop.matching.net. 0 IN TXT "v=spf1 include:loop1.matching.net -all"`,
 		},
 	}))
 	defer dns.HandleRemove("loop.matching.net.")
 
-	dns.HandleFunc("loop1.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("loop1.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop1.matching.net. 0 IN TXT "v=spf1 include:loop2.matching.net -all"`,
 		},
 	}))
 	defer dns.HandleRemove("loop1.matching.net.")
 
-	dns.HandleFunc("loop2.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("loop2.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`loop2.matching.net. 0 IN TXT "v=spf1 include:loop.matching.net -all"`,
 		},
@@ -1017,10 +1011,18 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 		result Result
 		err    string
 	}{
-		{"v=spf1 include:loop.matching.net -all", net.IP{10, 0, 0, 1}, Permerror,
-			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
-		{"v=spf1 redirect=loop.matching.net", net.IP{10, 0, 0, 1}, Permerror,
-			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]"},
+		{
+			"v=spf1 include:loop.matching.net -all",
+			net.IP{10, 0, 0, 1},
+			Permerror,
+			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+		},
+		{
+			"v=spf1 redirect=loop.matching.net",
+			net.IP{10, 0, 0, 1},
+			Permerror,
+			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+		},
 	}
 
 	for _, test := range tests {
@@ -1031,7 +1033,7 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			}
 			done := make(chan R)
 			go func() {
-				result, _, err, _ := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
+				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
 				done <- R{result, err}
 			}()
 			select {
@@ -1055,8 +1057,7 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 // TestParseRedirect tests whole parsing behavior with a special testing of
 // redirect modifier
 func TestHandleRedirect(t *testing.T) {
-
-	dns.HandleFunc("matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.net.", Zone(map[uint16][]string{
 		dns.TypeMX: {
 			"matching.net. 0 IN MX 5 matching.net.",
 		},
@@ -1067,21 +1068,21 @@ func TestHandleRedirect(t *testing.T) {
 	}))
 	defer dns.HandleRemove("matching.net.")
 
-	dns.HandleFunc("_spf.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("_spf.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"_spf.matching.net. 0 IN TXT \"v=spf1 a:positive.matching.net -a:negative.matching.net ~mx -all\"",
 		},
 	}))
 	defer dns.HandleRemove("_spf.matching.net.")
 
-	dns.HandleFunc("nospf.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("nospf.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"nospf.matching.net. 0 IN TXT \"no spf here\"",
 		},
 	}))
 	defer dns.HandleRemove("nospf.matching.net.")
 
-	dns.HandleFunc("positive.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.matching.net.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"positive.matching.net. 0 IN A 172.100.100.1",
 			"positive.matching.net. 0 IN A 173.18.0.2",
@@ -1091,7 +1092,7 @@ func TestHandleRedirect(t *testing.T) {
 	}))
 	defer dns.HandleRemove("positive.matching.net.")
 
-	dns.HandleFunc("negative.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("negative.matching.net.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			"negative.matching.net. 0 IN A 172.100.100.1",
 			"negative.matching.net. 0 IN A 173.18.0.2",
@@ -1101,21 +1102,21 @@ func TestHandleRedirect(t *testing.T) {
 	}))
 	defer dns.HandleRemove("negative.matching.net.")
 
-	dns.HandleFunc("redirect.matching.net.", zone(map[uint16][]string{
+	dns.HandleFunc("redirect.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"redirect.matching.net. 0 IN TXT \"v=spf1 redirect=matching.com\"",
 		},
 	}))
 	defer dns.HandleRemove("redirect.matching.net.")
 
-	dns.HandleFunc("redirect.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("redirect.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"redirect.matching.com. 0 IN TXT \"v=spf1 redirect=redirect.matching.net\"",
 		},
 	}))
 	defer dns.HandleRemove("redirect.matching.com.")
 
-	dns.HandleFunc("matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"matching.com. 0 IN TXT \"v=spf1 mx:matching.com -all\"",
 		},
@@ -1163,14 +1164,14 @@ func TestHandleExplanation(t *testing.T) {
 	// ip.exp.matching.com.            IN      TXT "%{i} is not one of %{d}'s designated mail servers."
 	// redirect.exp.matching.com.      IN      TXT "See http://%{d}/why.html?s=%{s}&i=%{i}"
 
-	dns.HandleFunc("static.exp.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("static.exp.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"static.exp.matching.com. 0 IN TXT \"Invalid SPF record\"",
 		},
 	}))
 	defer dns.HandleRemove("static.exp.matching.com.")
 
-	dns.HandleFunc("ip.exp.matching.com.", zone(map[uint16][]string{
+	dns.HandleFunc("ip.exp.matching.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"ip.exp.matching.com. 0 in TXT \"%{i} is not one of %{d}'s designated mail servers.\"",
 		},
@@ -1178,18 +1179,22 @@ func TestHandleExplanation(t *testing.T) {
 	defer dns.HandleRemove("ip.exp.matching.com.")
 
 	expTestCases := []ExpTestCase{
-		{"v=spf1 -all exp=static.exp.matching.com",
-			"Invalid SPF record"},
-		{"v=spf1 -all exp=ip.exp.matching.com",
-			"127.0.0.1 is not one of matching.com's designated mail servers."},
+		{
+			"v=spf1 -all exp=static.exp.matching.com",
+			"Invalid SPF record",
+		},
+		{
+			"v=spf1 -all exp=ip.exp.matching.com",
+			"127.0.0.1 is not one of matching.com's designated mail servers.",
+		},
 		// TODO(zaccone): Cover this testcase
-		//ExpTestCase{"v=spf1 -all exp=redirect.exp.matching.com",
-		//ExpT"See http://matching.com/why.html?s=&i="},
+		// ExpTestCase{"v=spf1 -all exp=redirect.exp.matching.com",
+		// ExpT"See http://matching.com/why.html?s=&i="},
 	}
 
 	for _, testcase := range expTestCases {
 		p := newParser(WithResolver(testResolver)).with(testcase.Query, "matching.com", "matching.com", ip)
-		_, exp, err, _ := p.check()
+		_, exp, _, err := p.check()
 		if err != nil {
 			t.Errorf("%q unexpected error while parsing: %s", testcase.Query, err)
 		}
@@ -1201,28 +1206,28 @@ func TestHandleExplanation(t *testing.T) {
 }
 
 func TestSelectingRecord(t *testing.T) {
-	dns.HandleFunc("v-spf2.", zone(map[uint16][]string{
+	dns.HandleFunc("v-spf2.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`v-spf2. 0 IN TXT "v=spf2"`,
 		},
 	}))
 	defer dns.HandleRemove("v-spf2.")
 
-	dns.HandleFunc("v-spf10.", zone(map[uint16][]string{
+	dns.HandleFunc("v-spf10.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`v-spf10. 0 IN TXT "v=spf10"`,
 		},
 	}))
 	defer dns.HandleRemove("v-spf10.")
 
-	dns.HandleFunc("no-record.", zone(map[uint16][]string{
+	dns.HandleFunc("no-record.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`no-record. 0 IN TXT ""`,
 		},
 	}))
 	defer dns.HandleRemove("no-record.")
 
-	dns.HandleFunc("many-records.", zone(map[uint16][]string{
+	dns.HandleFunc("many-records.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`many-records. 0 IN TXT "v=spf1"`,
 			`many-records. 0 IN TXT "v=spf1"`,
@@ -1231,7 +1236,7 @@ func TestSelectingRecord(t *testing.T) {
 	}))
 	defer dns.HandleRemove("many-records.")
 
-	dns.HandleFunc("mixed-records.", zone(map[uint16][]string{
+	dns.HandleFunc("mixed-records.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`mixed-records. 0 IN TXT "v=spf1 +all"`,
 			`mixed-records. 0 IN TXT "v-spf10"`,
@@ -1263,7 +1268,7 @@ func TestSelectingRecord(t *testing.T) {
 }
 
 func TestCheckHost_Loops(t *testing.T) {
-	dns.HandleFunc("example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("example.com.", Zone(map[uint16][]string{
 		dns.TypeA: {
 			`example.com. 0 IN A 1.1.1.1`,
 		},
@@ -1276,42 +1281,42 @@ func TestCheckHost_Loops(t *testing.T) {
 	}))
 	defer dns.HandleRemove("example.com.")
 
-	dns.HandleFunc("a.example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("a.example.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`a.example.com. 0 IN TXT "v=spf1 include:a.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("a.example.com.")
 
-	dns.HandleFunc("b.example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("b.example.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`b.example.com. 0 IN TXT "v=spf1 include:b.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("b.example.com.")
 
-	dns.HandleFunc("c.example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("c.example.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`c.example.com. 0 IN TXT "v=spf1 include:c.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("c.example.com.")
 
-	dns.HandleFunc("ab.example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("ab.example.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`ab.example.com. 0 IN TXT "v=spf1 include:ba.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("ab.example.com.")
 
-	dns.HandleFunc("ba.example.com.", zone(map[uint16][]string{
+	dns.HandleFunc("ba.example.com.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`ba.example.com. 0 IN TXT "v=spf1 include:ab.example.com -all"`,
 		},
 	}))
 	defer dns.HandleRemove("ba.example.com.")
 
-	dns.HandleFunc("mail.example.com.", zone(map[uint16][]string{}))
+	dns.HandleFunc("mail.example.com.", Zone(map[uint16][]string{}))
 	defer dns.HandleRemove("mail.example.com.")
 
 	tests := []struct {
@@ -1321,10 +1326,14 @@ func TestCheckHost_Loops(t *testing.T) {
 		e    error
 		opts []Option
 	}{
-		{"normal mode", "ab.example.com", Permerror,
-			SyntaxError{&token{tInclude, qPlus, "ba.example.com"},
-				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected}},
-			[]Option{WithResolver(testResolver)}},
+		{
+			"normal mode", "ab.example.com", Permerror,
+			SyntaxError{
+				&token{tInclude, qPlus, "ba.example.com"},
+				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
+			},
+			[]Option{WithResolver(testResolver)},
+		},
 		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
 		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}

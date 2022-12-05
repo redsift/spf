@@ -1,11 +1,10 @@
 package spf
 
 import (
+	"fmt"
+	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
-
-	"fmt"
-
 	"time"
 
 	"github.com/miekg/dns"
@@ -60,14 +59,14 @@ func TestMacroIteration(t *testing.T) {
 
 	const skipAllBut = -1
 	for no, test := range tests {
-		if skipAllBut != -1 && skipAllBut != no {
+		if //goland:noinspection GoBoolExpressions
+		skipAllBut != -1 && skipAllBut != no {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
 			got, err := parseMacroToken(
 				newParser(WithResolver(testResolver)).with(stub, test.sender, test.domain, test.addr),
 				&token{mechanism: tExp, qualifier: qMinus, value: test.macro})
-
 			if err != nil {
 				t.Errorf("'%s' err=%s", test.macro, err)
 			}
@@ -97,15 +96,23 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 		{"%{lr}", "strong-bad"},
 		{"%{lr-}", "bad.strong"},
 		{"%{l1r-}", "strong"},
-		{"%{ir}.%{v}._spf.%{d2}",
-			"3.2.0.192.in-addr._spf.example.com"},
+		{
+			"%{ir}.%{v}._spf.%{d2}",
+			"3.2.0.192.in-addr._spf.example.com",
+		},
 		{"%{lr-}.lp._spf.%{d2}", "bad.strong.lp._spf.example.com"},
-		{"%{lr-}.lp.%{ir}.%{v}._spf.%{d2}",
-			"bad.strong.lp.3.2.0.192.in-addr._spf.example.com"},
-		{"%{ir}.%{v}.%{l1r-}.lp._spf.%{d2}",
-			"3.2.0.192.in-addr.strong.lp._spf.example.com"},
-		{"%{d2}.trusted-domains.example.net",
-			"example.com.trusted-domains.example.net"},
+		{
+			"%{lr-}.lp.%{ir}.%{v}._spf.%{d2}",
+			"bad.strong.lp.3.2.0.192.in-addr._spf.example.com",
+		},
+		{
+			"%{ir}.%{v}.%{l1r-}.lp._spf.%{d2}",
+			"3.2.0.192.in-addr.strong.lp._spf.example.com",
+		},
+		{
+			"%{d2}.trusted-domains.example.net",
+			"example.com.trusted-domains.example.net",
+		},
 		{"%{S}", "strong-bad@email.example.com"},
 		{"%{O}", "email.example.com"},
 		{"%{D}", "email.example.com"},
@@ -115,8 +122,10 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 		{"%{DR}", "com.example.email"},
 		{"%{D2R}", "example.email"},
 		{"%{L}", "strong-bad"},
-		{"%{IR}.%{V}._spf.%{D2}",
-			"3.2.0.192.in-addr._spf.example.com"},
+		{
+			"%{IR}.%{V}._spf.%{D2}",
+			"3.2.0.192.in-addr._spf.example.com",
+		},
 	}
 
 	parser := newParser(WithResolver(testResolver)).
@@ -214,65 +223,65 @@ func TestMacro_Domains(t *testing.T) {
 	// be the same as the <domain> argument when check_host() is initially
 	// evaluated.  In most other cases it will be the same (see Section 5.2
 	// below).
-	testResolverCache.Purge()
+	testResolverCache.Clear()
 
-	dns.HandleFunc("a.test.", zone(map[uint16][]string{
+	dns.HandleFunc("a.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`a.test. 0 IN TXT "v=spf1 include:positive.%{d} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("a.test.")
 
-	dns.HandleFunc("positive.a.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.a.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.a.test. 0 IN TXT "v=spf1 +all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.a.test.")
 
-	dns.HandleFunc("b.test.", zone(map[uint16][]string{
+	dns.HandleFunc("b.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`b.test. 0 IN TXT "v=spf1 include:positive.%{O} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("b.test.")
 
-	dns.HandleFunc("positive.b.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.b.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.b.test. 0 IN TXT "v=spf1 -all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.b.test.")
 
-	dns.HandleFunc("c.test.", zone(map[uint16][]string{
+	dns.HandleFunc("c.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`c.test. 0 IN TXT "v=spf1 include:%{h} -all"`,
 		},
 	}))
 	defer dns.HandleRemove("c.test.")
 
-	dns.HandleFunc("positive.test.", zone(map[uint16][]string{
+	dns.HandleFunc("positive.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`positive.test. 0 IN TXT "v=spf1 +all"`,
 		},
 	}))
 	defer dns.HandleRemove("positive.test.")
 
-	dns.HandleFunc("c.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("c.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`c.explain.test. 0 IN TXT "%{c}"`,
 		},
 	}))
 	defer dns.HandleRemove("c.explain.test.")
 
-	dns.HandleFunc("r.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("r.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`r.explain.test. 0 IN TXT "%{r}"`,
 		},
 	}))
 	defer dns.HandleRemove("r.explain.test.")
 
-	dns.HandleFunc("t.explain.test.", zone(map[uint16][]string{
+	dns.HandleFunc("t.explain.test.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`t.explain.test. 0 IN TXT "%{t}"`,
 		},
@@ -303,17 +312,17 @@ func TestMacro_Domains(t *testing.T) {
 
 	const skipAllBut = -1
 	for no, test := range tests {
-		if skipAllBut != -1 && skipAllBut != no {
+		if //goland:noinspection GoBoolExpressions
+		skipAllBut != -1 && skipAllBut != no {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, exp, err, _ :=
-				newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
-					HeloDomain(test.helo),
-					EvaluatedOn(time.Unix(1, 0)),
-					ReceivingFQDN(test.receivingFQDN)).
-					with(test.query, "a.test", "c.test", net.ParseIP("1000:0000:0000:0000:0000:0000:0000:0001")).
-					check()
+			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+				HeloDomain(test.helo),
+				EvaluatedOn(time.Unix(1, 0)),
+				ReceivingFQDN(test.receivingFQDN)).
+				with(test.query, "a.test", "c.test", net.ParseIP("1000:0000:0000:0000:0000:0000:0000:0001")).
+				check()
 			if test.wantErr != (err != nil) {
 				t.Errorf("%q err=%s", test.query, err)
 			}
