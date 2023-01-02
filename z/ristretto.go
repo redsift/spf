@@ -1,7 +1,7 @@
 package z
 
 import (
-	"github.com/cespare/xxhash"
+	"github.com/cespare/xxhash/v2"
 	"github.com/miekg/dns"
 	"github.com/outcaste-io/ristretto"
 )

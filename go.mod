@@ -1,7 +1,7 @@
 module github.com/redsift/spf/v2
 
 require (
-	github.com/cespare/xxhash v1.1.0
+	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/google/go-cmp v0.5.8
 	github.com/miekg/dns v1.1.50
 	github.com/outcaste-io/ristretto v0.2.1-0.20220920190841-934cd992cf88
@@ -12,7 +12,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
 	github.com/pkg/errors v0.9.1 // indirect
