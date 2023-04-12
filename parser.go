@@ -249,7 +249,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		case tExists:
 			matches, result, ttl, err = p.parseExists(token)
 		case tPTR:
-			_, _, _ = p.parsePtr(token)
+			matches, result, err = p.parsePtr(token)
 		default:
 			p.fireDirective(token, "")
 		}
@@ -600,9 +600,58 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 	}
 }
 
+// https://www.rfc-editor.org/rfc/rfc7208#section-5.5
 func (p *parser) parsePtr(t *token) (bool, Result, error) {
-	p.fireDirective(t, domainSpec(t.value, p.domain))
-	return false, internalError, nil
+	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	if err == nil {
+		fqdn, err = parseMacro(p, fqdn, false)
+	}
+	if err == nil {
+		fqdn, err = truncateFQDN(fqdn)
+	}
+	if err == nil && !isDomainName(fqdn) {
+		err = newInvalidDomainError(fqdn)
+	}
+	fqdn = NormalizeFQDN(fqdn)
+
+	p.fireDirective(t, fqdn)
+
+	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
+	if err != nil {
+		return false, Permerror, err
+	}
+
+	result, _ := matchingResult(t.qualifier)
+
+	for _, ptrDomain := range ptrs {
+		found, _, err := p.resolver.MatchIP(ptrDomain, func(ptrIp net.IP, host string) (bool, error) {
+			n := net.IPNet{
+				IP: ptrIp,
+			}
+			switch len(ptrIp) {
+			case net.IPv4len:
+				n.Mask = ip4Mask
+			case net.IPv6len:
+				n.Mask = ip6Mask
+			}
+			if n.Contains(p.ip) {
+				// Check if the PTR domain matches the target name or is a subdomain of the target name
+				if strings.HasSuffix(ptrDomain, fqdn) || fqdn == ptrDomain {
+					return true, nil // Match found
+				}
+			}
+			return false, nil
+		})
+		if err != nil {
+			continue
+		}
+
+		if found == true {
+			return true, result, nil
+		}
+	}
+
+	return false, Fail, nil
 }
 
 func (p *parser) handleRedirect(t *token) (Result, error) {

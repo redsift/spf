@@ -99,3 +99,12 @@ func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, tim
 		return matcher(ip, name)
 	})
 }
+
+// LookupPTR returns the DNS PTR records for the given domain name
+// and the minimum TTL
+func (r *LimitedResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+	if !r.canLookup() {
+		return nil, 0, ErrDNSLimitExceeded
+	}
+	return r.resolver.LookupPTR(name)
+}

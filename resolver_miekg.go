@@ -391,3 +391,33 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, ti
 
 	return false, 0, nil
 }
+
+// LookupPTR returns the DNS PTR records for the given IP and
+// the minimum TTL
+func (r *miekgDNSResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+	req := new(dns.Msg)
+	req.SetQuestion(name, dns.TypePTR)
+
+	res, err := r.exchange(req)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var ttl uint32 = 1<<32 - 1
+
+	ptrs := make([]string, 0, len(res.Answer))
+	for _, a := range res.Answer {
+		if r, ok := a.(*dns.PTR); ok {
+			ptrs = append(ptrs, r.Ptr)
+			if d := a.Header().Ttl; d < ttl {
+				ttl = d
+			}
+		}
+	}
+
+	if len(ptrs) == 0 {
+		ttl = 0
+	}
+
+	return ptrs, time.Duration(ttl) * time.Second, nil
+}
