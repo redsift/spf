@@ -613,8 +613,10 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 		err = newInvalidDomainError(fqdn)
 	}
 	fqdn = NormalizeFQDN(fqdn)
-
 	p.fireDirective(t, fqdn)
+	if err != nil {
+		return true, Permerror, SyntaxError{t, err}
+	}
 
 	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
 	if err != nil {
@@ -646,7 +648,7 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 			continue
 		}
 
-		if found == true {
+		if found {
 			return true, result, nil
 		}
 	}
