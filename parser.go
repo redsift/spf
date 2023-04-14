@@ -619,8 +619,15 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	}
 
 	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
-	if err != nil {
+	switch err {
+	case nil:
+		// continue
+	case ErrDNSLimitExceeded:
 		return false, Permerror, err
+	case ErrDNSPermerror:
+		return false, None, err
+	default:
+		return false, Temperror, err
 	}
 
 	result, _ := matchingResult(t.qualifier)
