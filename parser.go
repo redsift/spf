@@ -602,10 +602,8 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
 func (p *parser) parsePtr(t *token) (bool, Result, error) {
-	fqdn, _, _, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
-	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false)
-	}
+	fqdn := domainSpec(t.value, p.domain)
+	fqdn, err := parseMacro(p, fqdn, false)
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
 	}
