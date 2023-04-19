@@ -602,7 +602,7 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
 func (p *parser) parsePtr(t *token) (bool, Result, error) {
-	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
+	fqdn, _, _, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
 		fqdn, err = parseMacro(p, fqdn, false)
 	}
@@ -633,17 +633,8 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	result, _ := matchingResult(t.qualifier)
 
 	for _, ptrDomain := range ptrs {
-		found, _, err := p.resolver.MatchIP(ptrDomain, func(ptrIp net.IP, host string) (bool, error) {
-			n := net.IPNet{
-				IP: ptrIp,
-			}
-			switch len(ptrIp) {
-			case net.IPv4len:
-				n.Mask = ip4Mask
-			case net.IPv6len:
-				n.Mask = ip6Mask
-			}
-			if n.Contains(p.ip) {
+		found, _, err := p.resolver.MatchIP(ptrDomain, func(ip net.IP, host string) (bool, error) {
+			if ip.Equal(p.ip) {
 				// Check if the PTR domain matches the target name or is a subdomain of the target name
 				if strings.HasSuffix(ptrDomain, fqdn) || fqdn == ptrDomain {
 					return true, nil // Match found

@@ -80,7 +80,7 @@ type Resolver interface {
 	// Then IPMatcherFunc used to compare checked IP to the returned address(es).
 	// If any address matches, the mechanism matches and returns the TTL.
 	MatchMX(string, IPMatcherFunc) (bool, time.Duration, error)
-	// LookupPTR returns the DNS PTR records for the given domain name and
+	// LookupPTR returns the DNS PTR records for the given address and
 	// the minimum TTL.
 	LookupPTR(string) ([]string, time.Duration, error)
 }
