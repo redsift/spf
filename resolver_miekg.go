@@ -1,13 +1,14 @@
 package spf
 
 import (
-	"github.com/redsift/spf/v2/z"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/redsift/spf/v2/z"
 )
 
 type MiekgDNSResolverOption func(r *miekgDNSResolver)
@@ -396,7 +397,7 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, ti
 // the minimum TTL
 func (r *miekgDNSResolver) LookupPTR(name string) ([]string, time.Duration, error) {
 	req := new(dns.Msg)
-	req.SetQuestion(name, dns.TypePTR)
+	req.SetQuestion(NewPTRAddress(name), dns.TypePTR)
 
 	res, err := r.exchange(req)
 	if err != nil {
@@ -420,4 +421,37 @@ func (r *miekgDNSResolver) LookupPTR(name string) ([]string, time.Duration, erro
 	}
 
 	return ptrs, time.Duration(ttl) * time.Second, nil
+}
+
+func NewPTRAddress(address string) string {
+	ip := net.ParseIP(address)
+	if ip.To4() != nil {
+		return ip4ToLookup(ip)
+	} else {
+		return ip6ToLookup(ip)
+	}
+}
+
+func ip4ToLookup(ip net.IP) string {
+	return strconv.Itoa(int(ip[15])) +
+		"." + strconv.Itoa(int(ip[14])) +
+		"." + strconv.Itoa(int(ip[13])) +
+		"." + strconv.Itoa(int(ip[12])) +
+		"." + "in-addr.arpa."
+}
+
+func ip6ToLookup(ip net.IP) string {
+	// Must be IPv6
+	buf := make([]byte, 0, len(ip)*4+9)
+	// Add it, in reverse, to the buffer
+	for i := len(ip) - 1; i >= 0; i-- {
+		v := ip[i]
+		buf = append(buf, hexDigit[v&0xF])
+		buf = append(buf, '.')
+		buf = append(buf, hexDigit[v>>4])
+		buf = append(buf, '.')
+	}
+	// Append "ip6.arpa." and return (buf already has the final .)
+	buf = append(buf, "ip6.arpa."...)
+	return string(buf)
 }
