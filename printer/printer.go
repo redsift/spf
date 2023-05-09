@@ -94,7 +94,7 @@ func (p *Printer) LookupTXTStrict(name string) ([]string, time.Duration, error) 
 }
 
 func (p *Printer) LookupPTR(name string) ([]string, time.Duration, error) {
-	fmt.Fprintf(p.w, "%s  lookup(TXT) %s\n", strings.Repeat("  ", p.c), name)
+	fmt.Fprintf(p.w, "%s  lookup(PTR) %s\n", strings.Repeat("  ", p.c), name)
 	atomic.AddInt64(&p.lc, 1)
 	p.lc++
 	return p.r.LookupPTR(name)
