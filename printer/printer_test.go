@@ -139,7 +139,7 @@ func ExamplePrinter() {
 	//   SPF: v=spf1 ptr ~all
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
-	//     lookup(TXT) 0.0.0.0
+	//     lookup(PTR) 0.0.0.0
 	//   ~all
 	// = softfail, "4m59s", , <nil>
 	// ## of lookups: 15
