@@ -143,3 +143,14 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Du
 
 	return false, 0, nil
 }
+
+// LookupPTR returns the DNS PTR records for the given name and the TTL.
+func (r *DNSResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+	ptrs, err := net.LookupAddr(name)
+	err = errDNS(err)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return ptrs, 0, nil
+}

@@ -94,6 +94,20 @@ func (r *retryResolver) LookupTXT(name string) ([]string, time.Duration, error) 
 	}
 }
 
+// LookupPTR returns the DNS PTR records for the given address.
+func (r *retryResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+	expired := r.expiredFunc()
+	for attempt := 0; ; attempt++ {
+		for _, next := range r.rr {
+			v, ttl, err := next.LookupPTR(name)
+			if err != ErrDNSTemperror || expired() {
+				return v, ttl, err
+			}
+		}
+		time.Sleep(r.backoff(attempt))
+	}
+}
+
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
 // mechanism matches and returns the ttl.

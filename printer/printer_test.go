@@ -139,9 +139,10 @@ func ExamplePrinter() {
 	//   SPF: v=spf1 ptr ~all
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
+	//     lookup(PTR) 0.0.0.0
 	//   ~all
 	// = softfail, "4m59s", , <nil>
-	// ## of lookups: 13
+	// ## of lookups: 15
 }
 
 // b, _ := spf.CacheDump(c.GetALL(false)).MarshalJSON()

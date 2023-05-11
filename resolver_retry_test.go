@@ -43,6 +43,10 @@ func (r *brokenResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time
 	return false, 0, r.error()
 }
 
+func (r *brokenResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+	return nil, 0, r.error()
+}
+
 func TestRetryResolver_Exists(t *testing.T) {
 	lastErr := errors.New("last error")
 
