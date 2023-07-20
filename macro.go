@@ -19,42 +19,43 @@ const (
 )
 
 type macro struct {
-	start  int
-	pos    int
-	prev   int
-	length int
-	input  string
-	output []string
-	state  stateFn
-	exp    bool
-	pctPos int
+	start         int
+	pos           int
+	prev          int
+	length        int
+	input         string
+	missingMacros []string
+	output        []string
+	state         stateFn
+	exp           bool
+	pctPos        int
 }
 
 func newMacro(input string, exp bool) *macro {
-	return &macro{0, 0, 0, len(input), input, make([]string, 0), nil, exp, 0}
+	return &macro{0, 0, 0, len(input), input, make([]string, 0), make([]string, 0), nil, exp, 0}
 }
 
 type stateFn func(*macro, *parser) (stateFn, error)
 
 // parseMacro evaluates whole input string and replaces keywords with appropriate
-// values from
-func parseMacro(p *parser, input string, exp bool) (string, error) {
+// values from. It also returns any macros that were expected by not found
+func parseMacro(p *parser, input string, exp bool) (string, []string, error) {
 	m := newMacro(input, exp)
 	var err error
 	for m.state = scanText; m.state != nil; {
 		m.state, err = m.state(m, p)
 		if err != nil {
 			// log error
-			return "", err
+			return "", nil, err
 		}
 
 	}
-	return strings.Join(m.output, ""), nil
+	return strings.Join(m.output, ""), m.missingMacros, nil
 }
 
 // parseMacroToken evaluates whole input string and replaces keywords with appropriate
-// values from
-func parseMacroToken(p *parser, t *token) (string, error) {
+// values from. It also returns any macros that were expected by not found
+func parseMacroToken(p *parser, t *token) (string, []string, error) {
 	return parseMacro(p, t.value, false)
 }
 
@@ -238,6 +239,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	// var err error
 	var result string
 	var email *addrSpec
+	var missingMacro string
 
 	switch r {
 	case 's', 'S':
@@ -247,7 +249,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-
+		if result == "" {
+			missingMacro = "sender {s}"
+		}
 	case 'l', 'L':
 		email = parseAddrSpec(p.sender, p.sender)
 		curItem = item{email.local, negative, delimiter, false}
@@ -255,6 +259,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
 			return errInvalidMacroSyntax(err)
+		}
+		if result == "" {
+			missingMacro = "local-part of <sender> {l}"
 		}
 
 	case 'o', 'O':
@@ -265,6 +272,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
+		if result == "" {
+			missingMacro = "domain of <sender> {o}"
+		}
 
 	case 'h', 'H':
 		curItem = item{removeRoot(p.heloDomain), negative, delimiter, false}
@@ -272,6 +282,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
 			return errInvalidMacroSyntax(err)
+		}
+		if result == "" {
+			missingMacro = "heloDomain {h}"
 		}
 
 	case 'd', 'D':
@@ -281,13 +294,18 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-
+		if result == "" {
+			missingMacro = "domain {d}"
+		}
 	case 'i', 'I':
 		curItem = item{toDottedHex(p.ip, false), negative, delimiter, false}
 		m.moveon()
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
 			return errInvalidMacroSyntax(err)
+		}
+		if result == "" {
+			missingMacro = "ip {i}"
 		}
 
 	case 'p', 'P':
@@ -311,7 +329,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-
+		if result == "" {
+			missingMacro = "SMTP client IP {c}"
+		}
 	case 'r', 'R':
 		if !m.exp {
 			return errInvalidMacroSyntax(errors.New(`'r' macro letter allowed only in "exp" text`))
@@ -321,6 +341,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
 			return errInvalidMacroSyntax(err)
+		}
+		if result == "" {
+			missingMacro = "receivingDomain {r}"
 		}
 
 	case 't', 'T':
@@ -332,6 +355,9 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		result, err = parseDelimiter(m, &curItem)
 		if err != nil {
 			return errInvalidMacroSyntax(err)
+		}
+		if result == "" {
+			missingMacro = "current timestamp {t}"
 		}
 	}
 
@@ -345,6 +371,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 	}
 
 	m.collect(result)
+	m.collectMissingMacros(missingMacro)
 	m.moveon()
 
 	m.moveon()
@@ -353,6 +380,12 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 
 func (m *macro) collect(result string) {
 	m.output = append(m.output, result)
+}
+func (m *macro) collectMissingMacros(macro string) {
+	if macro == "" {
+		return
+	}
+	m.missingMacros = append(m.missingMacros, macro)
 }
 
 func (m *macro) collectMacroBody() {
