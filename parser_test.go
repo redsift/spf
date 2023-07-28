@@ -244,7 +244,6 @@ type TokenTestCaseWithTTL struct {
 // TODO(marek): Add testfunction for tVersion token
 
 func TestParseAll(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
 		{&token{tAll, qPlus, ""}, Pass, true, false},
 		{&token{tAll, qMinus, ""}, Fail, true, false},
@@ -259,6 +258,13 @@ func TestParseAll(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseAll(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch")
@@ -392,7 +398,6 @@ func TestParseAIpv6(t *testing.T) {
 	dns.HandleFunc("negative.matching.com.", negativeMatchingCom)
 	defer dns.HandleRemove("negative.matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", ipv6)
 	testcases := []TokenTestCase{
 		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, false},
 		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, false},
@@ -414,6 +419,13 @@ func TestParseAIpv6(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
+			opts := []Option{WithResolver(testResolver)}
+			if testcase.ignoreMatches {
+				opts = append(opts, IgnoreMatches())
+			}
+
+			p := newParser(opts...).with(stub, domain, "matching.com", ipv6)
+
 			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
@@ -426,7 +438,6 @@ func TestParseAIpv6(t *testing.T) {
 }
 
 func TestParseIp4(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
 		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true, false},
 		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true, false},
@@ -452,6 +463,13 @@ func TestParseIp4(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseIP4(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch")
@@ -463,8 +481,6 @@ func TestParseIp4(t *testing.T) {
 }
 
 func TestParseIp6(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ipv6)
-
 	testcases := []TokenTestCase{
 		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, false},
 		{&token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, false},
@@ -487,6 +503,13 @@ func TestParseIp6(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ipv6)
+
 		match, result, _ = p.parseIP6(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -498,8 +521,6 @@ func TestParseIp6(t *testing.T) {
 }
 
 func TestParseIp6WithIp4(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
-
 	testcases := []TokenTestCase{
 		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, false},
 		{&token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, false},
@@ -512,6 +533,13 @@ func TestParseIp6WithIp4(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseIP6(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -610,8 +638,6 @@ func TestParseMXNegativeTests(t *testing.T) {
 	dns.HandleFunc("matching.com.", mxMatchingCom)
 	defer dns.HandleRemove("matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", net.IP{127, 0, 0, 1})
-
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, false, false},
 		{&token{tMX, qPlus, ""}, Pass, false, false},
@@ -627,6 +653,13 @@ func TestParseMXNegativeTests(t *testing.T) {
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, "matching.com", "matching.com", net.IP{127, 0, 0, 1})
+
 		match, result, _, _ = p.parseMX(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -672,7 +705,6 @@ func TestParseInclude(t *testing.T) {
 		{173, 20, 21, 1},
 	}
 
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
 		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
 		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
@@ -685,6 +717,12 @@ func TestParseInclude(t *testing.T) {
 
 	for i, testcase := range testcases {
 		for j, ip := range ips {
+			opts := []Option{WithResolver(testResolver)}
+			if testcase.ignoreMatches {
+				opts = append(opts, IgnoreMatches())
+			}
+			p := newParser(opts...).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
+
 			p.ip = ip
 			match, result, _ := p.parseInclude(testcase.Input)
 			if testcase.Match != match {
@@ -742,7 +780,6 @@ func TestParseIncludeNegative(t *testing.T) {
 		{173, 18, 100, 102},
 		{173, 18, 100, 103},
 	}
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", ip)
 
 	testcases := []TokenTestCase{
 		{&token{tInclude, qMinus, "_spf.matching.net"}, None, false, false},
@@ -754,6 +791,8 @@ func TestParseIncludeNegative(t *testing.T) {
 
 		// empty input qualifier results in Permerror withour recursive calls
 		{&token{tInclude, qMinus, ""}, Permerror, true, false},
+
+		{&token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -761,6 +800,13 @@ func TestParseIncludeNegative(t *testing.T) {
 
 	for _, testcase := range testcases {
 		for _, ip := range ips {
+			opts := []Option{WithResolver(testResolver)}
+			if testcase.ignoreMatches {
+				opts = append(opts, IgnoreMatches())
+			}
+
+			p := newParser(opts...).with(stub, "matching.net", "matching.net", ip)
+
 			p.ip = ip
 			match, result, _ = p.parseInclude(testcase.Input)
 			if testcase.Match != match {
@@ -793,7 +839,6 @@ func TestParseExists(t *testing.T) {
 	dns.HandleFunc("positive.matching.com.", Zone(hosts))
 	defer dns.HandleRemove("positive.matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", ip)
 	testcases := []TokenTestCase{
 		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, false},
 		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, false},
@@ -803,9 +848,19 @@ func TestParseExists(t *testing.T) {
 		{&token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
 		{&token{tExists, qTilde, ""}, Permerror, true, false},
 		{&token{tExists, qTilde, "invalidsyntax%{}"}, Permerror, true, false},
+
+		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, true},
+		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, true},
 	}
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, "matching.com", "matching.com", ip)
+
 		match, result, _, _ := p.parseExists(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
