@@ -1334,8 +1334,8 @@ func TestCheckHost_Loops(t *testing.T) {
 			},
 			[]Option{WithResolver(testResolver)},
 		},
-		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
-		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
+		{"walker mode, errors below threshold", "example.com", Permerror, nil, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
+		{"walker mode, errors above threshold", "example.com", Permerror, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}
 
 	ip := net.ParseIP("10.0.0.1")
