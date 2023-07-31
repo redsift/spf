@@ -2,6 +2,7 @@ package spf
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -46,6 +47,13 @@ func (e *DomainError) Error() string {
 func newInvalidDomainError(domain string) error {
 	return &DomainError{
 		Err:    "invalid domain name",
+		Domain: domain,
+	}
+}
+
+func newMissingMacrosError(domain string, macros []string) error {
+	return &DomainError{
+		Err:    fmt.Sprintf("macros values missing: %s. ", strings.Join(macros, ", ")),
 		Domain: domain,
 	}
 }

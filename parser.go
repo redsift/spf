@@ -460,7 +460,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false)
+		fqdn, _, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -495,7 +495,7 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false)
+		fqdn, _, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -530,13 +530,17 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain, err := parseMacro(p, t.value, false)
+	domain, missingMacros, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
 	if err == nil && !isDomainName(domain) {
 		err = newInvalidDomainError(domain)
 	}
+	if len(missingMacros) > 0 {
+		err = newMissingMacrosError(domain, missingMacros)
+	}
+
 	domain = NormalizeFQDN(domain)
 	p.fireDirective(t, domain)
 	if err != nil {
@@ -587,13 +591,17 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 }
 
 func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
-	resolvedDomain, err := parseMacroToken(p, t)
+	resolvedDomain, missingMacros, err := parseMacroToken(p, t)
 	if err == nil {
 		resolvedDomain, err = truncateFQDN(resolvedDomain)
 	}
 	if err == nil && !isDomainName(resolvedDomain) {
 		err = newInvalidDomainError(resolvedDomain)
 	}
+	if len(missingMacros) > 0 {
+		err = newMissingMacrosError(resolvedDomain, missingMacros)
+	}
+
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
@@ -619,7 +627,7 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
 func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	fqdn := domainSpec(t.value, p.domain)
-	fqdn, err := parseMacro(p, fqdn, false)
+	fqdn, _, err := parseMacro(p, fqdn, false)
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
 	}
@@ -678,7 +686,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		result Result
 	)
 
-	domain, err := parseMacro(p, t.value, false)
+	domain, _, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -707,7 +715,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 }
 
 func (p *parser) handleExplanation(t *token) (string, error) {
-	domain, err := parseMacroToken(p, t)
+	domain, _, err := parseMacroToken(p, t)
 	if err != nil {
 		return "", SyntaxError{t, err}
 	}
@@ -733,7 +741,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 	//  not in the "unreserved" set, which is defined in [RFC3986].
 	//  https://tools.ietf.org/html/rfc7208#section-7.3
 	//  looks like we need to do it after truncating
-	exp, err := parseMacro(p, strings.Join(txts, ""), true)
+	exp, _, err := parseMacro(p, strings.Join(txts, ""), true)
 	if err != nil {
 		return "", SyntaxError{t, err}
 	}
