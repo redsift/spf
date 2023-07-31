@@ -329,7 +329,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 		if err != nil {
 			return errInvalidMacroSyntax(err)
 		}
-		if result == "" {
+		if result == "" || result == "<nil>" {
 			missingMacro = "SMTP client IP {c}"
 		}
 	case 'r', 'R':
