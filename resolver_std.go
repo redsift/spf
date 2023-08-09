@@ -3,7 +3,6 @@ package spf
 import (
 	"net"
 	"sync"
-	"time"
 )
 
 // DNSResolver implements Resolver using local DNS
@@ -32,9 +31,9 @@ func errDNS(e error) error {
 	return ErrDNSTemperror
 }
 
-// LookupTXTStrict returns DNS TXT records for the given name and the TTL, however it
+// LookupTXTStrict returns DNS TXT records for the given name and the TTL however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *DNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
+func (r *DNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
 	txts, err := net.LookupTXT(name)
 
 	if dnsErr, ok := err.(*net.DNSError); ok {
@@ -50,72 +49,72 @@ func (r *DNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, err
 		//  the mechanism continues as if the server returned no error (RCODE
 		//  0) and zero answer records.
 		if dnsErr.Err == "no such host" {
-			return nil, 0, ErrDNSPermerror
+			return nil, nil, ErrDNSPermerror
 		}
 	}
 
 	err = errDNS(err)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
-	return txts, 0, nil
+	return txts, nil, nil
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name and the TTL.
-func (r *DNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
+func (r *DNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
 	txts, err := net.LookupTXT(name)
 	err = errDNS(err)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
-	return txts, 0, nil
+	return txts, nil, nil
 }
 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
 // mechanism matches and returns the ttl.
-func (r *DNSResolver) Exists(name string) (bool, time.Duration, error) {
+func (r *DNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	ips, err := net.LookupIP(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, 0, err
+		return false, nil, err
 	}
-	return len(ips) > 0, 0, nil
+	return len(ips) > 0, nil, nil
 }
 
 type hit struct {
-	found bool
-	ttl   time.Duration
-	err   error
+	found     bool
+	resExtras *ResponseExtras
+	err       error
 }
 
 // MatchIP provides an address lookup, which should be done on the name
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches and returns the TTL with it
-func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *DNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	ips, err := net.LookupIP(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, 0, err
+		return false, nil, err
 	}
 	for _, ip := range ips {
 		if m, e := matcher(ip, name); m || e != nil {
-			return m, 0, e
+			return m, nil, e
 		}
 	}
-	return false, 0, nil
+	return false, nil, nil
 }
 
 // MatchMX is similar to MatchIP but first performs an MX lookup on the
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches and returns the TTL.
-func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	mxs, err := net.LookupMX(name)
 	err = errDNS(err)
 	if err != nil {
-		return false, 0, err
+		return false, nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -124,8 +123,8 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Du
 	for _, mx := range mxs {
 		wg.Add(1)
 		go func(name string) {
-			found, ttl, err := r.MatchIP(name, matcher)
-			hits <- hit{found, ttl, err}
+			found, resExtras, err := r.MatchIP(name, matcher)
+			hits <- hit{found, resExtras, err}
 			wg.Done()
 		}(mx.Host)
 	}
@@ -137,20 +136,20 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Du
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.ttl, h.err
+			return h.found, h.resExtras, h.err
 		}
 	}
 
-	return false, 0, nil
+	return false, nil, nil
 }
 
 // LookupPTR returns the DNS PTR records for the given name and the TTL.
-func (r *DNSResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+func (r *DNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
 	ptrs, err := net.LookupAddr(name)
 	err = errDNS(err)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	return ptrs, 0, nil
+	return ptrs, nil, nil
 }

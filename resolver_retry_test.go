@@ -23,28 +23,28 @@ func (r *brokenResolver) error() error {
 	return ErrDNSTemperror
 }
 
-func (r *brokenResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
-	return nil, 0, r.error()
+func (r *brokenResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
+	return nil, nil, r.error()
 }
 
-func (r *brokenResolver) LookupTXT(name string) ([]string, time.Duration, error) {
-	return nil, 0, r.error()
+func (r *brokenResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
+	return nil, nil, r.error()
 }
 
-func (r *brokenResolver) Exists(name string) (bool, time.Duration, error) {
-	return false, 0, r.error()
+func (r *brokenResolver) Exists(name string) (bool, *ResponseExtras, error) {
+	return false, nil, r.error()
 }
 
-func (r *brokenResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
-	return false, 0, r.error()
+func (r *brokenResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
+	return false, nil, r.error()
 }
 
-func (r *brokenResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
-	return false, 0, r.error()
+func (r *brokenResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
+	return false, nil, r.error()
 }
 
-func (r *brokenResolver) LookupPTR(name string) ([]string, time.Duration, error) {
-	return nil, 0, r.error()
+func (r *brokenResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
+	return nil, nil, r.error()
 }
 
 func TestRetryResolver_Exists(t *testing.T) {
