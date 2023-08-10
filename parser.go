@@ -251,7 +251,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		case tExists:
 			matches, result, resExtras, err = p.parseExists(token)
 		case tPTR:
-			matches, result, err = p.parsePtr(token)
+			matches, result, resExtras, err = p.parsePtr(token)
 		default:
 			p.fireDirective(token, "")
 		}
@@ -625,7 +625,7 @@ func (p *parser) parseExists(t *token) (bool, Result, *ResponseExtras, error) {
 }
 
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
-func (p *parser) parsePtr(t *token) (bool, Result, error) {
+func (p *parser) parsePtr(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn := domainSpec(t.value, p.domain)
 	fqdn, _, err := parseMacro(p, fqdn, false)
 	if err == nil {
@@ -637,19 +637,19 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, nil, SyntaxError{t, err}
 	}
 
-	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
+	ptrs, resExtras, err := p.resolver.LookupPTR(p.ip.String())
 	switch err {
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return false, Permerror, err
+		return false, Permerror, resExtras, err
 	case ErrDNSPermerror:
-		return false, None, err
+		return false, None, resExtras, err
 	default:
-		return false, Temperror, err
+		return false, Temperror, resExtras, err
 	}
 
 	result, _ := matchingResult(t.qualifier)
@@ -669,11 +669,11 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 		}
 
 		if found {
-			return true, result, nil
+			return true, result, nil, nil
 		}
 	}
 
-	return false, Fail, nil
+	return false, Fail, nil, nil
 }
 
 func (p *parser) handleRedirect(t *token) (Result, error) {
