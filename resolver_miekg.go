@@ -341,8 +341,8 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *R
 				return
 			}
 
-			if m, resExtras, e := matchIP(res.Answer, matcher, name); m || e != nil {
-				hits <- hit{m, resExtras, e}
+			if m, extras, e := matchIP(res.Answer, matcher, name); m || e != nil {
+				hits <- hit{m, extras, e}
 				return
 			}
 		}
@@ -361,7 +361,7 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *R
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.resExtras, h.err
+			return h.found, h.extras, h.err
 		}
 	}
 
@@ -419,7 +419,7 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *R
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.resExtras, h.err
+			return h.found, h.extras, h.err
 		}
 	}
 

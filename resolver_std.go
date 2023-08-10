@@ -83,9 +83,9 @@ func (r *DNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 }
 
 type hit struct {
-	found     bool
-	resExtras *ResponseExtras
-	err       error
+	found  bool
+	extras *ResponseExtras
+	err    error
 }
 
 // MatchIP provides an address lookup, which should be done on the name
@@ -123,8 +123,8 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *Respon
 	for _, mx := range mxs {
 		wg.Add(1)
 		go func(name string) {
-			found, resExtras, err := r.MatchIP(name, matcher)
-			hits <- hit{found, resExtras, err}
+			found, extras, err := r.MatchIP(name, matcher)
+			hits <- hit{found, extras, err}
 			wg.Done()
 		}(mx.Host)
 	}
@@ -136,7 +136,7 @@ func (r *DNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *Respon
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.resExtras, h.err
+			return h.found, h.extras, h.err
 		}
 	}
 

@@ -71,9 +71,9 @@ func (r *retryResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras,
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, resExtras, err := next.LookupTXTStrict(name)
+			v, extras, err := next.LookupTXTStrict(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, resExtras, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -85,9 +85,9 @@ func (r *retryResolver) LookupTXT(name string) ([]string, *ResponseExtras, error
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, resExtras, err := next.LookupTXT(name)
+			v, extras, err := next.LookupTXT(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, resExtras, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -99,9 +99,9 @@ func (r *retryResolver) LookupPTR(name string) ([]string, *ResponseExtras, error
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, resExtras, err := next.LookupPTR(name)
+			v, extras, err := next.LookupPTR(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, resExtras, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -115,9 +115,9 @@ func (r *retryResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, resExtras, err := next.Exists(name)
+			v, extras, err := next.Exists(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, resExtras, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))

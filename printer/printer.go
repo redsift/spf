@@ -40,12 +40,12 @@ func (p *Printer) SPFRecord(s string) {
 	fmt.Fprintf(p.w, "%sSPF: %s\n", strings.Repeat("  ", p.c), s)
 }
 
-func (p *Printer) CheckHostResult(r spf.Result, explanation string, resExtras *spf.ResponseExtras, err error) {
+func (p *Printer) CheckHostResult(r spf.Result, explanation string, extras *spf.ResponseExtras, err error) {
 	p.Lock()
 	defer p.Unlock()
 	p.c--
 	p.done = p.c == 0
-	fmt.Fprintf(p.w, "%s= %s, %v, %v, %v\n", strings.Repeat("  ", p.c), r, resExtras, explanation, err)
+	fmt.Fprintf(p.w, "%s= %s, %v, %v, %v\n", strings.Repeat("  ", p.c), r, extras, explanation, err)
 }
 
 func (p *Printer) Directive(unused bool, qualifier, mechanism, value, effectiveValue string) {
@@ -74,8 +74,12 @@ func (p *Printer) NonMatch(qualifier, mechanism, value string, result spf.Result
 	// fmt.Fprintf(p.w, "%sNON-MATCH: %s, %v\n", strings.Repeat("  ", p.c), result, err)
 }
 
-func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, explanation string, resExtras *spf.ResponseExtras, err error) {
+func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, explanation string, extras *spf.ResponseExtras, err error) {
 	// fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
+}
+
+func (p *Printer) FireVoidLookup() {
+	// do nothing
 }
 
 func (p *Printer) LookupTXT(name string) ([]string, *spf.ResponseExtras, error) {
