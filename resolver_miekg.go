@@ -239,13 +239,9 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 		minTTL = 0
 	}
 
-	if len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess {
-		void = true
-	}
-
 	extras := &ResponseExtras{
 		TTL:  time.Duration(minTTL) * time.Second,
-		Void: void,
+		Void: len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
 	}
 
 	return txts, extras, nil
