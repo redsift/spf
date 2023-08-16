@@ -180,7 +180,6 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, er
 
 	txts := make([]string, 0, len(res.Answer))
 	var minTTL uint32 = math.MaxUint32
-	void := false
 
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
@@ -191,17 +190,13 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, er
 		}
 	}
 
-	if (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError {
-		void = true
-	}
-
 	if len(txts) == 0 {
 		minTTL = 0
 	}
 
 	extras := &ResponseExtras{
 		TTL:  time.Duration(minTTL) * time.Second,
-		Void: void,
+		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
 	}
 
 	return txts, extras, nil
@@ -224,7 +219,6 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 
 	var minTTL uint32 = math.MaxUint32
 	txts := make([]string, 0, len(res.Answer))
-	void := false
 
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
@@ -260,7 +254,6 @@ func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	}
 
 	var minTTL uint32 = 1<<32 - 1
-	void := false
 	as := 0
 
 	for _, a := range res.Answer {
@@ -272,17 +265,13 @@ func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 		}
 	}
 
-	if (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError {
-		void = true
-	}
-
 	if as == 0 {
 		minTTL = 0
 	}
 
 	extras := &ResponseExtras{
 		TTL:  time.Duration(minTTL) * time.Second,
-		Void: void,
+		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
 	}
 
 	return len(res.Answer) > 0, extras, nil
@@ -435,7 +424,6 @@ func (r *miekgDNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, er
 
 	var minTTL uint32 = 1<<32 - 1
 	ptrs := make([]string, 0, len(res.Answer))
-	void := false
 
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.PTR); ok {
@@ -446,17 +434,13 @@ func (r *miekgDNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, er
 		}
 	}
 
-	if (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError {
-		void = true
-	}
-
 	if len(ptrs) == 0 {
 		minTTL = 0
 	}
 
 	extras := &ResponseExtras{
 		TTL:  time.Duration(minTTL) * time.Second,
-		Void: void,
+		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
 	}
 
 	return ptrs, extras, nil
