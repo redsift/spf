@@ -167,8 +167,8 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 
-// LookupTXT returns the DNS TXT records for the given domain name and
-// the minimum TTL
+// LookupTXT returns the DNS TXT records for the given domain name,
+// along with additional response information in ResponseExtras
 func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
@@ -195,15 +195,17 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, er
 	}
 
 	extras := &ResponseExtras{
-		TTL:  time.Duration(minTTL) * time.Second,
+		TTL: time.Duration(minTTL) * time.Second,
+		// We have a void lookup if we have no answers with NoError, or we have NXDomain
 		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
 	}
 
 	return txts, extras, nil
 }
 
-// LookupTXTStrict returns DNS TXT records for the given name, however it
-// will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
+// LookupTXTStrict returns DNS TXT records for the given domain name,
+// and returns ErrDNSPermerror upon returned NXDOMAIN (RCODE 3),
+// along with additional response information in ResponseExtras.
 func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
@@ -214,6 +216,7 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 	}
 
 	if res.Rcode == dns.RcodeNameError {
+		// Mark it as a void lookup as we got NXDomain
 		return nil, &ResponseExtras{Void: true}, ErrDNSPermerror
 	}
 
@@ -234,16 +237,17 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 	}
 
 	extras := &ResponseExtras{
-		TTL:  time.Duration(minTTL) * time.Second,
+		TTL: time.Duration(minTTL) * time.Second,
+		// We have a void lookup if we have no answers with NoError
 		Void: len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
 	}
 
 	return txts, extras, nil
 }
 
-// Exists is used for a DNS A RR lookup (even when the
-// connection type is IPv6).  If any A record is returned, this
-// mechanism matches and returns the ttl.
+// Exists is used for a DNS A RR lookup (even when the connection type is IPv6).
+// If any A record is returned, this mechanism matches and a bool,
+// along with additional response information in ResponseExtras.
 func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeA)
@@ -270,7 +274,8 @@ func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	}
 
 	extras := &ResponseExtras{
-		TTL:  time.Duration(minTTL) * time.Second,
+		TTL: time.Duration(minTTL) * time.Second,
+		// We have a void lookup if we have no answers with NoError, or we have NXDomain
 		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
 	}
 
@@ -305,9 +310,10 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, *ResponseE
 }
 
 // MatchIP provides an address lookup, which should be done on the name
-// using the type of lookup (A or AAAA).
-// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
+// using the type of lookup (A or AAAA). Then IPMatcherFunc is used to compare
+// the checked IP to the returned address(es). If any address matches,
+// the mechanism matches and returns the TTL,
+// along with additional response information in ResponseExtras.
 func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	var wg sync.WaitGroup
 	qTypes := []uint16{dns.TypeA, dns.TypeAAAA}
@@ -353,10 +359,11 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *R
 	return false, nil, nil
 }
 
-// MatchMX is similar to MatchIP but first performs an MX lookup on the
-// name.  Then it performs an address lookup on each MX name returned.
-// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
+// MatchMX is similar to MatchIP but first performs an MX lookup on the name.
+// Then it performs an address lookup on each MX name returned.
+// IPMatcherFunc is used to compare the checked IP to the returned address(es).
+// If any address matches, the mechanism matches and returns a bool,
+// along with additional response information in ResponseExtras.
 func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeMX)
@@ -411,8 +418,8 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *R
 	return false, nil, nil
 }
 
-// LookupPTR returns the DNS PTR records for the given IP and
-// the minimum TTL
+// LookupPTR returns the DNS PTR records for the given address,
+// along with additional response information in ResponseExtras.
 func (r *miekgDNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(NewPTRAddress(name), dns.TypePTR)

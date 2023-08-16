@@ -68,7 +68,13 @@ type IPMatcherFunc func(ip net.IP, name string) (bool, error)
 // ResponseExtras contains additional information returned alongside DNS query results.
 type ResponseExtras struct {
 	TTL  time.Duration // Minimum TTL of the DNS response
-	Void bool          // Indicates if the response is void
+	Void bool          // Indicates if the response is a result of a DNS void lookup.
+
+	// A DNS void lookup, as defined in Section 4.6.4 of RFC 7208 (https://datatracker.ietf.org/doc/html/rfc7208#section-4.6.4),
+	// is a query for a domain that is intentionally configured to have no associated DNS records,
+	// such as an explicit configuration for a "blackhole" or an intentionally nonexistent domain.
+	// This type of query typically returns a response with no relevant DNS records (e.g., NXDOMAIN),
+	// and the 'Void' field in this struct is set to 'true' to indicate that the response resulted from such a lookup.
 }
 
 // Resolver provides an abstraction for DNS layer operations.
