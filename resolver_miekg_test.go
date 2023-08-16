@@ -183,3 +183,94 @@ func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 		t.Error("No TXT records", txts)
 	}
 }
+
+func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
+	dns.HandleFunc("void.test.", Zone(map[uint16][]string{}))
+	defer dns.HandleRemove("void.test.")
+
+	assertVoidLookup := func(t *testing.T, method func() ([]string, *ResponseExtras, error)) {
+		answers, extras, _ := method()
+		if len(answers) != 0 {
+			t.Fatal("expected 0")
+		}
+
+		if extras == nil {
+			t.Fatal("expected responseExtras")
+		}
+
+		if !extras.Void {
+			t.Fatal("expected responseExtras.Void = true")
+		}
+	}
+
+	// Subtest for LookupTXTVoid
+	t.Run("LookupTXTVoid", func(t *testing.T) {
+		// case 1 NOERROR
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupTXT("void.test.")
+		})
+
+		// case 2 NXDOMAIN
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupTXT("example.test.")
+		})
+	})
+
+	// Subtest for LookupTXTStrictVoid
+	t.Run("LookupTXTStrictVoid", func(t *testing.T) {
+		// case 1 NOERROR
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupTXTStrict("void.test.")
+		})
+
+		// case 2 NXDOMAIN
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupTXTStrict("example.test.")
+		})
+	})
+
+	// Subtest for ExistsVoid
+	t.Run("ExistsVoid", func(t *testing.T) {
+
+		// case 1 NOERROR
+		found, extras, _ := testResolver.Exists("void.test.")
+		if found {
+			t.Fatal("expected false")
+		}
+
+		if extras == nil {
+			t.Fatal("expected responseExtras")
+		}
+
+		if !extras.Void {
+			t.Fatal("expected responseExtras.Void = true")
+		}
+
+		// case 2 NXDOMAIN
+		found, extras, _ = testResolver.Exists("example.test.")
+		if found {
+			t.Fatal("expected false")
+		}
+
+		if extras == nil {
+			t.Fatal("expected responseExtras")
+		}
+
+		if !extras.Void {
+			t.Fatal("expected responseExtras.Void = true")
+		}
+	})
+
+	// Subtest for LookupPTRVoid
+	t.Run("LookupPTRVoid", func(t *testing.T) {
+		// case 1 NOERROR
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupPTR("void.test.")
+		})
+
+		// case 2 NXDOMAIN
+		assertVoidLookup(t, func() ([]string, *ResponseExtras, error) {
+			return testResolver.LookupPTR("example.test.")
+		})
+	})
+}
