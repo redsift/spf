@@ -98,9 +98,9 @@ func TestLimitedResolver(t *testing.T) {
 		defer dns.HandleRemove("void.test.")
 
 		r := NewLimitedResolver(testResolver, 6, 6, 2)
+		_, _, _ = r.LookupTXTStrict("void.test.")
+		_, _, _ = r.LookupTXTStrict("void.test.")
 		_, _, err := r.LookupTXTStrict("void.test.")
-		_, _, err = r.LookupTXTStrict("void.test.")
-		_, _, err = r.LookupTXTStrict("void.test.")
 		if err != ErrDNSVoidLookupLimitExceeded {
 			t.Errorf("LookupTXTStrict got: %v; want ErrDNSVoidLookupLimitExceeded", err)
 		}
