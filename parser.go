@@ -120,7 +120,7 @@ func newParser(opts ...Option) *parser {
 func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:         NewLimitedResolver(&DNSResolver{}, 10, 10),
+		resolver:         NewLimitedResolver(&DNSResolver{}, 10, 10, 2),
 		options:          opts,
 		visited:          visited,
 		receivingFQDN:    "unknown",

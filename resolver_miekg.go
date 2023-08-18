@@ -190,15 +190,16 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, er
 		}
 	}
 
+	extras := &ResponseExtras{
+		// We have a void lookup if we have no answers with NoError, or we have NXDomain
+		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
+	}
+
 	if len(txts) == 0 {
 		minTTL = 0
 	}
 
-	extras := &ResponseExtras{
-		TTL: time.Duration(minTTL) * time.Second,
-		// We have a void lookup if we have no answers with NoError, or we have NXDomain
-		Void: (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
-	}
+	extras.TTL = time.Duration(minTTL) * time.Second
 
 	return txts, extras, nil
 }
@@ -232,15 +233,16 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 		}
 	}
 
+	extras := &ResponseExtras{
+		// We have a void lookup if we have no answers with NoError
+		Void: len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
+	}
+
 	if len(txts) == 0 {
 		minTTL = 0
 	}
 
-	extras := &ResponseExtras{
-		TTL: time.Duration(minTTL) * time.Second,
-		// We have a void lookup if we have no answers with NoError
-		Void: len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
-	}
+	extras.TTL = time.Duration(minTTL) * time.Second
 
 	return txts, extras, nil
 }
