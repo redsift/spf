@@ -33,7 +33,7 @@ func (r *LimitedResolver) canLookup() bool {
 }
 
 func (r *LimitedResolver) canPerformVoidLookup() bool {
-	return atomic.AddInt32(&r.voidLookupLimit, -1) > 0
+	return atomic.AddInt32(&r.voidLookupLimit, -1) > -1
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name
@@ -53,10 +53,8 @@ func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, *ResponseExtra
 	}
 
 	txts, extras, err := r.resolver.LookupTXTStrict(name)
-	if extras != nil && extras.Void {
-		if !r.canPerformVoidLookup() {
-			return nil, nil, ErrDNSVoidLookupLimitExceeded
-		}
+	if extras.IsVoid() && !r.canPerformVoidLookup() {
+		return nil, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
 	return txts, extras, err
@@ -73,10 +71,8 @@ func (r *LimitedResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	}
 
 	found, extras, err := r.resolver.Exists(name)
-	if extras != nil && extras.Void {
-		if !r.canPerformVoidLookup() {
-			return false, nil, ErrDNSVoidLookupLimitExceeded
-		}
+	if extras.IsVoid() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
 	return found, extras, err
@@ -94,10 +90,8 @@ func (r *LimitedResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *Re
 	}
 
 	found, extras, err := r.resolver.MatchIP(name, matcher)
-	if extras != nil && extras.Void {
-		if !r.canPerformVoidLookup() {
-			return false, nil, ErrDNSVoidLookupLimitExceeded
-		}
+	if extras.IsVoid() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
 	return found, extras, err
@@ -127,10 +121,8 @@ func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *Re
 		}
 		return matcher(ip, name)
 	})
-	if extras != nil && extras.Void {
-		if !r.canPerformVoidLookup() {
-			return false, nil, ErrDNSVoidLookupLimitExceeded
-		}
+	if extras.IsVoid() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
 	return found, extras, err
@@ -143,10 +135,8 @@ func (r *LimitedResolver) LookupPTR(name string) ([]string, *ResponseExtras, err
 		return nil, nil, ErrDNSLimitExceeded
 	}
 	ptrs, extras, err := r.resolver.LookupPTR(name)
-	if extras != nil && extras.Void {
-		if !r.canPerformVoidLookup() {
-			return nil, nil, ErrDNSVoidLookupLimitExceeded
-		}
+	if extras.IsVoid() && !r.canPerformVoidLookup() {
+		return nil, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
 	return ptrs, extras, err

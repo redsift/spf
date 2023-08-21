@@ -96,11 +96,34 @@ func TestLimitedResolver(t *testing.T) {
 	{
 		dns.HandleFunc("void.test.", Zone(map[uint16][]string{}))
 		defer dns.HandleRemove("void.test.")
+		dns.HandleFunc("non-void.test.", Zone(map[uint16][]string{
+			dns.TypeTXT: {
+				`non-void.test. 0 IN TXT "ok"`,
+			},
+		}))
+		defer dns.HandleRemove("non-void.test.")
 
 		r := NewLimitedResolver(testResolver, 6, 6, 2)
-		_, _, _ = r.LookupTXTStrict("void.test.")
-		_, _, _ = r.LookupTXTStrict("void.test.")
 		_, _, err := r.LookupTXTStrict("void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		_, _, err = r.LookupTXTStrict("void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		res, _, err := r.LookupTXTStrict("non-void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		if len(res) == 0 {
+			t.Error("LookupTXTStrict result is empty")
+		}
+
+		_, _, err = r.LookupTXTStrict("void.test.")
 		if err != ErrDNSVoidLookupLimitExceeded {
 			t.Errorf("LookupTXTStrict got: %v; want ErrDNSVoidLookupLimitExceeded", err)
 		}

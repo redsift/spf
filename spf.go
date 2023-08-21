@@ -113,6 +113,17 @@ type Resolver interface {
 	LookupPTR(string) ([]string, *ResponseExtras, error)
 }
 
+func (x *ResponseExtras) GetTTL() time.Duration {
+	if x == nil {
+		return 0
+	}
+	return x.TTL
+}
+
+func (x *ResponseExtras) IsVoid() bool {
+	return x != nil && x.Void
+}
+
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF
 type Option func(*parser)
 
