@@ -30,37 +30,37 @@ func TestLexerNext(t *testing.T) {
 func TestLexerScanIdent(t *testing.T) {
 	tests := []struct {
 		query string
-		want  *token
+		want  *Token
 	}{
-		{"v=spf1", &token{tVersion, qPlus, "spf1"}},
-		{"v=spf1 ", &token{tVersion, qPlus, "spf1"}},
-		{"A:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
-		{"a:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
-		{"a", &token{tA, qPlus, ""}},
-		{"A", &token{tA, qPlus, ""}},
-		{"a:127.0.0.1 ", &token{tA, qPlus, "127.0.0.1"}},
-		{"?a:127.0.0.1   ", &token{tA, qQuestionMark, "127.0.0.1"}},
-		{"?ip6:2001::43   ", &token{tIP6, qQuestionMark, "2001::43"}},
-		{"+ip6:::1", &token{tIP6, qPlus, "::1"}},
-		{"^ip6:2001::4", &token{tErr, qErr, "^ip6:2001::4"}},
-		{"-all", &token{tAll, qMinus, ""}},
-		{"-all ", &token{tAll, qMinus, ""}},
-		{"-mx:localhost", &token{tMX, qMinus, "localhost"}},
-		{"mx", &token{tMX, qPlus, ""}},
-		{"a:", &token{tErr, qErr, "a:"}},
-		{"?mx:localhost", &token{tMX, qQuestionMark, "localhost"}},
-		{"?random:localhost", &token{tErr, qErr, "?random:localhost"}},
-		{"-:localhost", &token{tErr, qErr, "-:localhost"}},
-		{"", &token{tErr, qErr, ""}},
-		{"qowie", &token{tErr, qErr, "qowie"}},
-		{"~+all", &token{tErr, qErr, "~+all"}},
-		{"-~all", &token{tErr, qErr, "-~all"}},
-		{"mx", &token{tMX, qPlus, ""}},
-		{"mx/24", &token{tMX, qPlus, "/24"}},
-		{"~mx/24", &token{tMX, qTilde, "/24"}},
-		{"a", &token{tA, qPlus, ""}},
-		{"a/24", &token{tA, qPlus, "/24"}},
-		{"~a/24", &token{tA, qTilde, "/24"}},
+		{"v=spf1", &Token{tVersion, qPlus, "spf1"}},
+		{"v=spf1 ", &Token{tVersion, qPlus, "spf1"}},
+		{"A:127.0.0.1", &Token{tA, qPlus, "127.0.0.1"}},
+		{"a:127.0.0.1", &Token{tA, qPlus, "127.0.0.1"}},
+		{"a", &Token{tA, qPlus, ""}},
+		{"A", &Token{tA, qPlus, ""}},
+		{"a:127.0.0.1 ", &Token{tA, qPlus, "127.0.0.1"}},
+		{"?a:127.0.0.1   ", &Token{tA, qQuestionMark, "127.0.0.1"}},
+		{"?ip6:2001::43   ", &Token{tIP6, qQuestionMark, "2001::43"}},
+		{"+ip6:::1", &Token{tIP6, qPlus, "::1"}},
+		{"^ip6:2001::4", &Token{tErr, qErr, "^ip6:2001::4"}},
+		{"-all", &Token{tAll, qMinus, ""}},
+		{"-all ", &Token{tAll, qMinus, ""}},
+		{"-mx:localhost", &Token{tMX, qMinus, "localhost"}},
+		{"mx", &Token{tMX, qPlus, ""}},
+		{"a:", &Token{tErr, qErr, "a:"}},
+		{"?mx:localhost", &Token{tMX, qQuestionMark, "localhost"}},
+		{"?random:localhost", &Token{tErr, qErr, "?random:localhost"}},
+		{"-:localhost", &Token{tErr, qErr, "-:localhost"}},
+		{"", &Token{tErr, qErr, ""}},
+		{"qowie", &Token{tErr, qErr, "qowie"}},
+		{"~+all", &Token{tErr, qErr, "~+all"}},
+		{"-~all", &Token{tErr, qErr, "-~all"}},
+		{"mx", &Token{tMX, qPlus, ""}},
+		{"mx/24", &Token{tMX, qPlus, "/24"}},
+		{"~mx/24", &Token{tMX, qTilde, "/24"}},
+		{"a", &Token{tA, qPlus, ""}},
+		{"a/24", &Token{tA, qPlus, "/24"}},
+		{"~a/24", &Token{tA, qTilde, "/24"}},
 	}
 
 	for _, test := range tests {
@@ -77,21 +77,21 @@ func TestLexerScanIdent(t *testing.T) {
 func TestLexFunc(t *testing.T) {
 	type TestPair struct {
 		Record string
-		Tokens []*token
+		Tokens []*Token
 	}
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &Token{tVersion, qPlus, "spf1"}
 
 	testpairs := []TestPair{
 		{
 			"v=spf1 a:127.0.0.1",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tA, qPlus, "127.0.0.1"},
 			},
 		},
 		{
 			"v=spf1 ip4:127.0.0.1 -all",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tIP4, qPlus, "127.0.0.1"},
 				{tAll, qMinus, ""},
@@ -99,7 +99,7 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  -ptr:arpa.1.0.0.127   -all  ",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tPTR, qMinus, "arpa.1.0.0.127"},
 				{tAll, qMinus, ""},
@@ -107,7 +107,7 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  ~ip6:2001:db8::cd30 ?all  ",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tIP6, qTilde, "2001:db8::cd30"},
 				{tAll, qQuestionMark, ""},
@@ -115,7 +115,7 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  include:example.org -all  ",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tInclude, qPlus, "example.org"},
 				{tAll, qMinus, ""},
@@ -123,7 +123,7 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  include=example.org -all  ",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tErr, qErr, "include=example.org"},
 				{tAll, qMinus, ""},
@@ -131,7 +131,7 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  exists:%{ir}.%{l1r+-}._spf.%{d} +all",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tExists, qPlus, "%{ir}.%{l1r+-}._spf.%{d}"},
 				{tAll, qPlus, ""},
@@ -139,14 +139,14 @@ func TestLexFunc(t *testing.T) {
 		},
 		{
 			"v=spf1  redirect=_spf.example.org",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.org"},
 			},
 		},
 		{
 			"v=spf1 mx -all exp=explain._spf.%{d}",
-			[]*token{
+			[]*Token{
 				versionToken,
 				{tMX, qPlus, ""},
 				{tAll, qMinus, ""},

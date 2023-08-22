@@ -18,7 +18,7 @@ const (
 
 var (
 	ip4 = net.IP{10, 11, 12, 13}
-	tkn = &token{mechanism: tExp, qualifier: qMinus, value: ""}
+	tkn = &Token{mechanism: tExp, qualifier: qMinus, value: ""}
 )
 
 type MacroTest struct {
@@ -67,7 +67,7 @@ func TestMacroIteration(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
 			got, _, err := parseMacroToken(
 				newParser(WithResolver(testResolver)).with(stub, test.sender, test.domain, test.addr),
-				&token{mechanism: tExp, qualifier: qMinus, value: test.macro})
+				&Token{mechanism: tExp, qualifier: qMinus, value: test.macro})
 			if err != nil {
 				t.Errorf("'%s' err=%s", test.macro, err)
 			}

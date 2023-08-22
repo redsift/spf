@@ -123,7 +123,7 @@ func (tok tokenType) isModifier() bool {
 	return tok > modifierBeg && tok < modifierEnd
 }
 
-func checkTokenSyntax(tkn *token, delimiter rune) bool {
+func checkTokenSyntax(tkn *Token, delimiter rune) bool {
 	if tkn == nil {
 		return false
 	}
@@ -132,7 +132,7 @@ func checkTokenSyntax(tkn *token, delimiter rune) bool {
 		return true // syntax is ok
 	}
 
-	// special case for v=spf1 token
+	// special case for v=spf1 Token
 
 	if tkn.mechanism == tVersion {
 		return true
@@ -152,20 +152,20 @@ func checkTokenSyntax(tkn *token, delimiter rune) bool {
 	return true
 }
 
-// token represents SPF term (modifier or mechanism) like all, include, a, mx,
+// Token represents SPF term (modifier or mechanism) like all, include, a, mx,
 // ptr, ip4, ip6, exists, redirect etc.
 // It's a base structure later parsed by Parser.
-type token struct {
+type Token struct {
 	mechanism tokenType // all, include, a, mx, ptr, ip4, ip6, exists etc.
 	qualifier tokenType // +, -, ~, ?, defaults to +
 	value     string    // value for a mechanism
 }
 
-func (t *token) isErr() bool {
+func (t *Token) isErr() bool {
 	return t.mechanism == tErr || t.qualifier == qErr
 }
 
-func (t *token) String() string {
+func (t *Token) String() string {
 	if t == nil {
 		return ""
 	}

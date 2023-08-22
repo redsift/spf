@@ -17,8 +17,8 @@ type lexer struct {
 // lex reads SPF record and returns list of Tokens along with
 // their modifiers and values. Parser should parse the Tokens and execute
 // relevant actions
-func lex(input string) []*token {
-	var tokens []*token
+func lex(input string) []*Token {
+	var tokens []*Token
 	l := &lexer{0, 0, 0, len(input), input}
 	for {
 		token := l.scan()
@@ -31,11 +31,11 @@ func lex(input string) []*token {
 }
 
 // scan scans input and returns a Token structure
-func (l *lexer) scan() *token {
+func (l *lexer) scan() *Token {
 	for {
 		r, eof := l.next()
 		if eof {
-			return &token{tEOF, tEOF, ""}
+			return &Token{tEOF, tEOF, ""}
 		} else if isWhitespace(r) || l.eof() { // we just scanned some meaningful data
 			token := l.scanIdent()
 			l.scanWhitespaces()
@@ -86,9 +86,9 @@ func (l *lexer) scanWhitespaces() {
 // It operates on a slice with constraints [l.start:l.pos).
 // A cursor tries to find delimiters and set proper `mechanism`, `qualifier`
 // and value itself.
-// The default token has `mechanism` set to tErr, that is, error state.
-func (l *lexer) scanIdent() *token {
-	t := &token{tErr, qPlus, ""}
+// The default Token has `mechanism` set to tErr, that is, error state.
+func (l *lexer) scanIdent() *Token {
+	t := &Token{tErr, qPlus, ""}
 	start := l.start
 	cursor := l.start
 	hasQualifier := false

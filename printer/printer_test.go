@@ -140,6 +140,7 @@ func ExamplePrinter() {
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
 	//     lookup(PTR) 0.0.0.0
+	//   VOID: ptr, ptr.test.redsift.io.
 	//   ~all
 	// = softfail, &{299000000000 false}, , <nil>
 	// ## of lookups: 15

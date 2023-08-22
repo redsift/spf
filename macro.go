@@ -55,7 +55,7 @@ func parseMacro(p *parser, input string, exp bool) (string, []string, error) {
 
 // parseMacroToken evaluates whole input string and replaces keywords with appropriate
 // values from. It also returns any macros that were expected by not found
-func parseMacroToken(p *parser, t *token) (string, []string, error) {
+func parseMacroToken(p *parser, t *Token) (string, []string, error) {
 	return parseMacro(p, t.value, false)
 }
 
