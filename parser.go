@@ -166,7 +166,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 
 	var txts []string
 	txts, extras, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 
@@ -501,7 +501,7 @@ func (p *parser) parseA(t *token) (bool, Result, *ResponseExtras, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 
@@ -539,7 +539,7 @@ func (p *parser) parseMX(t *token) (bool, Result, *ResponseExtras, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 	if err != nil {
@@ -633,7 +633,7 @@ func (p *parser) parseExists(t *token) (bool, Result, *ResponseExtras, error) {
 	result, _ := matchingResult(t.qualifier)
 
 	found, extras, err := p.resolver.Exists(resolvedDomain)
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 
@@ -664,7 +664,7 @@ func (p *parser) parsePtr(t *token) (bool, Result, *ResponseExtras, error) {
 	}
 
 	ptrs, extras, err := p.resolver.LookupPTR(p.ip.String())
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 
@@ -758,7 +758,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 	}
 
 	txts, extras, err := p.resolver.LookupTXT(NormalizeFQDN(domain))
-	if extras != nil && extras.Void {
+	if extras.Void() {
 		p.fireVoidLookup()
 	}
 

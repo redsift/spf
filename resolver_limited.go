@@ -53,7 +53,7 @@ func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, *ResponseExtra
 	}
 
 	txts, extras, err := r.resolver.LookupTXTStrict(name)
-	if extras.IsVoid() && !r.canPerformVoidLookup() {
+	if extras.Void() && !r.canPerformVoidLookup() {
 		return nil, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
@@ -71,7 +71,7 @@ func (r *LimitedResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	}
 
 	found, extras, err := r.resolver.Exists(name)
-	if extras.IsVoid() && !r.canPerformVoidLookup() {
+	if extras.Void() && !r.canPerformVoidLookup() {
 		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
@@ -90,7 +90,7 @@ func (r *LimitedResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *Re
 	}
 
 	found, extras, err := r.resolver.MatchIP(name, matcher)
-	if extras.IsVoid() && !r.canPerformVoidLookup() {
+	if extras.Void() && !r.canPerformVoidLookup() {
 		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
@@ -121,7 +121,7 @@ func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *Re
 		}
 		return matcher(ip, name)
 	})
-	if extras.IsVoid() && !r.canPerformVoidLookup() {
+	if extras.Void() && !r.canPerformVoidLookup() {
 		return false, nil, ErrDNSVoidLookupLimitExceeded
 	}
 
@@ -135,7 +135,7 @@ func (r *LimitedResolver) LookupPTR(name string) ([]string, *ResponseExtras, err
 		return nil, nil, ErrDNSLimitExceeded
 	}
 	ptrs, extras, err := r.resolver.LookupPTR(name)
-	if extras.IsVoid() && !r.canPerformVoidLookup() {
+	if extras.Void() && !r.canPerformVoidLookup() {
 		return nil, nil, ErrDNSVoidLookupLimitExceeded
 	}
 

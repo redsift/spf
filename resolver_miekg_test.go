@@ -198,7 +198,7 @@ func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
 			t.Fatal("expected responseExtras")
 		}
 
-		if !extras.Void {
+		if !extras.Void() {
 			t.Fatal("expected responseExtras.Void = true")
 		}
 	}
@@ -242,7 +242,7 @@ func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
 			t.Fatal("expected responseExtras")
 		}
 
-		if !extras.Void {
+		if !extras.Void() {
 			t.Fatal("expected responseExtras.Void = true")
 		}
 
@@ -256,7 +256,7 @@ func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
 			t.Fatal("expected responseExtras")
 		}
 
-		if !extras.Void {
+		if !extras.Void() {
 			t.Fatal("expected responseExtras.Void = true")
 		}
 	})

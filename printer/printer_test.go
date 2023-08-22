@@ -104,7 +104,7 @@ func ExamplePrinter() {
 	//     ip4:87.253.232.0/21 (87.253.232.0/21)
 	//     ip4:185.189.236.0/22 (185.189.236.0/22)
 	//     ?all
-	//   = neutral, &{24m51s false}, , <nil>
+	//   = neutral, &{1491000000000 false}, , <nil>
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
@@ -114,7 +114,7 @@ func ExamplePrinter() {
 	//     ip4:198.2.128.0/18 (198.2.128.0/18)
 	//     ip4:148.105.8.0/21 (148.105.8.0/21)
 	//     ?all
-	//   = neutral, &{2m32s false}, , <nil>
+	//   = neutral, &{152000000000 false}, , <nil>
 	//   ip4:109.168.127.160/27 (109.168.127.160/27)
 	//   ip4:212.31.252.64/27 (212.31.252.64/27)
 	//   ip4:212.77.68.6 (212.77.68.6)
@@ -133,7 +133,7 @@ func ExamplePrinter() {
 	//   ip4:109.168.121.57/32 (109.168.121.57/32)
 	//   ip4:109.168.121.58/32 (109.168.121.58/32)
 	//   -all
-	// = fail, &{4m29s false}, , <nil>
+	// = fail, &{269000000000 false}, , <nil>
 	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
 	//   SPF: v=spf1 ptr ~all
@@ -141,7 +141,7 @@ func ExamplePrinter() {
 	//   ptr (ptr.test.redsift.io.)
 	//     lookup(PTR) 0.0.0.0
 	//   ~all
-	// = softfail, &{4m59s false}, , <nil>
+	// = softfail, &{299000000000 false}, , <nil>
 	// ## of lookups: 15
 }
 
@@ -209,8 +209,8 @@ func ExamplePrinter_ipv6nil() {
 	//       lookup(a:web.q4press.com.) web.q4press.com. -> (52.23.113.139/32 has? 0.0.0.0) = false
 	//       lookup(a:web.q4press.com.) web.q4press.com. -> (54.177.118.13/32 has? 0.0.0.0) = false
 	//     -all
-	//   = fail, &{55m3s false}, , <nil>
+	//   = fail, &{3303000000000 false}, , <nil>
 	//   ~all
-	// = softfail, &{59s false}, , <nil>
+	// = softfail, &{59000000000 false}, , <nil>
 	//
 }

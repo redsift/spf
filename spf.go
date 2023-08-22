@@ -68,14 +68,29 @@ type IPMatcherFunc func(ip net.IP, name string) (bool, error)
 
 // ResponseExtras contains additional information returned alongside DNS query results.
 type ResponseExtras struct {
-	TTL  time.Duration // Minimum TTL of the DNS response
-	Void bool          // Indicates if the response is a result of a DNS void lookup.
+	ttl  time.Duration // Minimum TTL of the DNS response
+	void bool          // Indicates if the response is a result of a DNS void lookup.
 
 	// A DNS void lookup, as defined in Section 4.6.4 of RFC 7208 (https://datatracker.ietf.org/doc/html/rfc7208#section-4.6.4),
 	// is a query for a domain that is intentionally configured to have no associated DNS records,
 	// such as an explicit configuration for a "blackhole" or an intentionally nonexistent domain.
 	// This type of query typically returns a response with no relevant DNS records (e.g., NXDOMAIN),
 	// and the 'Void' field in this struct is set to 'true' to indicate that the response resulted from such a lookup.
+}
+
+func NewResponseExtras(ttl time.Duration, void bool) *ResponseExtras {
+	return &ResponseExtras{ttl, void}
+}
+
+func (x *ResponseExtras) TTL() time.Duration {
+	if x == nil {
+		return 0
+	}
+	return x.ttl
+}
+
+func (x *ResponseExtras) Void() bool {
+	return x != nil && x.void
 }
 
 // Resolver provides an abstraction for DNS layer operations.
@@ -111,17 +126,6 @@ type Resolver interface {
 	// LookupPTR returns the DNS PTR records for the given address,
 	// along with additional response information in ResponseExtras.
 	LookupPTR(string) ([]string, *ResponseExtras, error)
-}
-
-func (x *ResponseExtras) GetTTL() time.Duration {
-	if x == nil {
-		return 0
-	}
-	return x.TTL
-}
-
-func (x *ResponseExtras) IsVoid() bool {
-	return x != nil && x.Void
 }
 
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF
