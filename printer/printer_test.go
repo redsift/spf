@@ -215,3 +215,71 @@ func ExamplePrinter_ipv6nil() {
 	// = softfail, &{59000000000 false}, , <nil>
 	//
 }
+
+func ExamplePrinter_voids() {
+	// use resolver with cache and no parallelism
+	r, err := spf.NewMiekgDNSResolver("8.8.8.8:53", spf.MiekgDNSParallelism(1))
+	if err != nil {
+		log.Fatalf("error creating resolver: %s", err)
+	}
+
+	// create a printer
+	p := New(os.Stdout, r)
+
+	res, s, _, err := spf.CheckHost(net.ParseIP("0.0.0.0"), "err008.spf.qa.redsift.tech", "redsift.io",
+		spf.WithResolver(p),
+		spf.WithListener(p),
+		spf.IgnoreMatches(),
+	)
+	if err != nil {
+		log.Fatalf("%s %q %s", res, s, err)
+	}
+	fmt.Printf("## of lookups: %d\n", p.LookupsCount())
+
+	// Output:
+	// CHECK_HOST("0.0.0.0", "err008.spf.qa.redsift.tech.", "redsift.io")
+	//     lookup(TXT:strict) err008.spf.qa.redsift.tech.
+	//   SPF: v=spf1 include:err008.1.spf.qa.redsift.tech -all
+	//   v=spf1
+	//   include:err008.1.spf.qa.redsift.tech (err008.1.spf.qa.redsift.tech.)
+	//   CHECK_HOST("0.0.0.0", "err008.1.spf.qa.redsift.tech.", "redsift.io")
+	//       lookup(TXT:strict) err008.1.spf.qa.redsift.tech.
+	//     SPF: v=spf1 include:err008.2.spf.qa.redsift.tech include:err008.3.spf.qa.redsift.tech include:err008.4.spf.qa.redsift.tech -all
+	//     v=spf1
+	//     include:err008.2.spf.qa.redsift.tech (err008.2.spf.qa.redsift.tech.)
+	//     CHECK_HOST("0.0.0.0", "err008.2.spf.qa.redsift.tech.", "redsift.io")
+	//         lookup(TXT:strict) err008.2.spf.qa.redsift.tech.
+	//       SPF: v=spf1 ip4:80.194.146.205 -all
+	//       v=spf1
+	//       ip4:80.194.146.205 (80.194.146.205)
+	//       -all
+	//     = fail, &{60000000000 false}, , <nil>
+	//     include:err008.3.spf.qa.redsift.tech (err008.3.spf.qa.redsift.tech.)
+	//     CHECK_HOST("0.0.0.0", "err008.3.spf.qa.redsift.tech.", "redsift.io")
+	//         lookup(TXT:strict) err008.3.spf.qa.redsift.tech.
+	//       VOID: , err008.3.spf.qa.redsift.tech.
+	//     = none, &{0 true}, , permanent DNS error
+	//     include:err008.4.spf.qa.redsift.tech (err008.4.spf.qa.redsift.tech.)
+	//     CHECK_HOST("0.0.0.0", "err008.4.spf.qa.redsift.tech.", "redsift.io")
+	//         lookup(TXT:strict) err008.4.spf.qa.redsift.tech.
+	//       SPF: v=spf1 include:err008.5.spf.qa.redsift.tech include:err008.6.spf.qa.redsift.tech -all
+	//       v=spf1
+	//       include:err008.5.spf.qa.redsift.tech (err008.5.spf.qa.redsift.tech.)
+	//       CHECK_HOST("0.0.0.0", "err008.5.spf.qa.redsift.tech.", "redsift.io")
+	//           lookup(TXT:strict) err008.5.spf.qa.redsift.tech.
+	//         VOID: , err008.5.spf.qa.redsift.tech.
+	//       = none, &{0 true}, , SPF record not found
+	//       include:err008.6.spf.qa.redsift.tech (err008.6.spf.qa.redsift.tech.)
+	//       CHECK_HOST("0.0.0.0", "err008.6.spf.qa.redsift.tech.", "redsift.io")
+	//           lookup(TXT:strict) err008.6.spf.qa.redsift.tech.
+	//         VOID: , err008.6.spf.qa.redsift.tech.
+	//       = none, &{0 true}, , permanent DNS error
+	//       -all
+	//     = permerror, &{60000000000 false}, , <nil>
+	//     -all
+	//   = permerror, &{60000000000 false}, , <nil>
+	//   -all
+	// = permerror, &{60000000000 false}, , <nil>
+	// ## of lookups: 6
+
+}
