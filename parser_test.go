@@ -705,24 +705,16 @@ func TestParseInclude(t *testing.T) {
 		{173, 20, 21, 1},
 	}
 
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
 		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
 		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
 		{&token{tInclude, qTilde, "_spf.matching.net"}, Softfail, true, false},
 		{&token{tInclude, qQuestionMark, "_spf.matching.net"}, Neutral, true, false},
-
-		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, true},
-		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, true},
 	}
 
 	for i, testcase := range testcases {
 		for j, ip := range ips {
-			opts := []Option{WithResolver(testResolver)}
-			if testcase.ignoreMatches {
-				opts = append(opts, IgnoreMatches())
-			}
-			p := newParser(opts...).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
-
 			p.ip = ip
 			match, result, _ := p.parseInclude(testcase.Input)
 			if testcase.Match != match {
@@ -1095,13 +1087,13 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			"v=spf1 include:loop.matching.net -all",
 			net.IP{10, 0, 0, 1},
 			Permerror,
-			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net ]",
 		},
 		{
 			"v=spf1 redirect=loop.matching.net",
 			net.IP{10, 0, 0, 1},
 			Permerror,
-			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
+			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net ]",
 		},
 	}
 
@@ -1330,11 +1322,11 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
-		{"notexists", None, ErrDNSPermerror},
-		{"v-spf2", None, ErrSPFNotFound},
-		{"v-spf10", None, ErrSPFNotFound},
-		{"no-record", None, ErrSPFNotFound},
-		{"many-records", Permerror, ErrTooManySPFRecords},
+		{"notexists", None, SpfError{kind: DNS, err: ErrDNSPermerror}},
+		{"v-spf2", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
+		{"v-spf10", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
+		{"no-record", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
+		{"many-records", Permerror, SpfError{kind: Validation, err: ErrTooManySPFRecords}},
 		{"mixed-records", Pass, nil},
 	}
 
@@ -1408,14 +1400,15 @@ func TestCheckHost_Loops(t *testing.T) {
 	}{
 		{
 			"normal mode", "ab.example.com", Permerror,
-			SyntaxError{
+			SpfError{
+				Validation,
 				&token{tInclude, qPlus, "ba.example.com"},
-				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
+				SpfError{Validation, &token{tInclude, qPlus, "ab.example.com"}, SpfError{kind: Validation, err: ErrLoopDetected}},
 			},
 			[]Option{WithResolver(testResolver)},
 		},
-		{"walker mode, errors below threshold", "example.com", Permerror, nil, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
-		{"walker mode, errors above threshold", "example.com", Permerror, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
+		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
+		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}
 
 	ip := net.ParseIP("10.0.0.1")
@@ -1425,7 +1418,7 @@ func TestCheckHost_Loops(t *testing.T) {
 			if diff := cmp.Diff(test.r, r); diff != "" {
 				t.Errorf("CheckHost() result differs: (-want +got)\n%s", diff)
 			}
-			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, token{}, errors.New(""))); diff != "" {
+			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SpfError{}, token{}, errors.New(""))); diff != "" {
 				t.Errorf("CheckHost() errors differs: (-want +got)\n%s", diff)
 			}
 		})
