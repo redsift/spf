@@ -1330,11 +1330,11 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
-		{"notexists", None, ErrDNSPermerror},
-		{"v-spf2", None, ErrSPFNotFound},
-		{"v-spf10", None, ErrSPFNotFound},
-		{"no-record", None, ErrSPFNotFound},
-		{"many-records", Permerror, ErrTooManySPFRecords},
+		{"notexists", None, DNSError{ErrDNSPermerror}},
+		{"v-spf2", None, ValidationError{ErrSPFNotFound}},
+		{"v-spf10", None, ValidationError{ErrSPFNotFound}},
+		{"no-record", None, ValidationError{ErrSPFNotFound}},
+		{"many-records", Permerror, ValidationError{ErrTooManySPFRecords}},
 		{"mixed-records", Pass, nil},
 	}
 

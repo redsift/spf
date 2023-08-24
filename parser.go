@@ -23,6 +23,24 @@ func matchingResult(qualifier tokenType) (Result, error) {
 	}
 }
 
+// ValidationError represents a validation error
+type ValidationError struct {
+	error
+}
+
+func NewValidationError(err error) ValidationError {
+	return ValidationError{err}
+}
+
+// DNSError represents a DNS related error
+type DNSError struct {
+	error
+}
+
+func NewDNSError(err error) DNSError {
+	return DNSError{err}
+}
+
 // SyntaxError represents parsing error, it holds reference to faulty token
 // as well as error describing fault
 type SyntaxError struct {
@@ -50,13 +68,22 @@ func (e SyntaxError) Error() string {
 		p.WriteString(t.String())
 	}
 	m := strings.Builder{}
+
 	m.WriteString(cause.Error())
+	if e.token != nil {
+		if e.token.mechanism == tErr {
+			m.WriteString(fmt.Sprint(": bad or missing mechanism"))
+		} else if e.token.qualifier == qErr {
+			m.WriteString(fmt.Sprint(": bad or missing qualifier"))
+		}
+	}
 	if p.Len() > 0 {
 		m.WriteByte(' ')
 		m.WriteByte('[')
 		m.WriteString(p.String())
 		m.WriteByte(']')
 	}
+
 	return m.String()
 }
 
@@ -170,11 +197,11 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return Permerror, "", "", err
+		return Permerror, "", "", NewDNSError(err)
 	case ErrDNSPermerror:
-		return None, "", "", err
+		return None, "", "", NewDNSError(err)
 	default:
-		return Temperror, "", "", err
+		return Temperror, "", "", NewDNSError(err)
 	}
 
 	// If the resultant record set includes no records, check_host()
@@ -182,10 +209,10 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	// more than one record, check_host() produces the "permerror" result.
 	spf, err = filterSPF(txts)
 	if err != nil {
-		return Permerror, "", "", err
+		return Permerror, "", "", ValidationError{err}
 	}
 	if spf == "" {
-		return None, "", "", ErrSPFNotFound
+		return None, "", "", ValidationError{ErrSPFNotFound}
 	}
 
 	r, expl, u, err = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
@@ -489,6 +516,9 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
+	if err != nil {
+		err = NewDNSError(err)
+	}
 	return found, result, ttl, err
 }
 
@@ -524,7 +554,7 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 		return n.Contains(p.ip), nil
 	})
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, 0, ValidationError{err}
 	}
 	return found, result, ttl, err
 }
@@ -569,7 +599,17 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/if err != nil {
+	*/
+	switch err.(type) {
+	case nil:
+		// do nothing
+	case SyntaxError:
+		err = SyntaxError{t, err}
+	case ValidationError:
+		err = ValidationError{err}
+	case DNSError:
+		err = NewDNSError(err)
+	default:
 		err = SyntaxError{t, err}
 	}
 
@@ -620,7 +660,7 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 	case ErrDNSPermerror:
 		return false, result, 0, nil
 	default:
-		return false, Temperror, 0, err // was true 8-|
+		return false, Temperror, 0, NewDNSError(err) // was true 8-|
 	}
 }
 
@@ -645,11 +685,11 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return false, Permerror, err
+		return false, Permerror, NewDNSError(err)
 	case ErrDNSPermerror:
-		return false, None, err
+		return false, None, NewDNSError(err)
 	default:
-		return false, Temperror, err
+		return false, Temperror, NewDNSError(err)
 	}
 
 	result, _ := matchingResult(t.qualifier)
@@ -732,7 +772,7 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 
 	txts, _, err := p.resolver.LookupTXT(NormalizeFQDN(domain))
 	if err != nil {
-		return "", err
+		return "", NewDNSError(err)
 	}
 
 	// RFC 7208, section 6.2 specifies that result strings should be
