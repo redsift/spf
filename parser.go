@@ -72,9 +72,9 @@ func (e SyntaxError) Error() string {
 	m.WriteString(cause.Error())
 	if e.token != nil {
 		if e.token.mechanism == tErr {
-			m.WriteString(fmt.Sprint(": bad or missing mechanism"))
+			m.WriteString(": bad or missing mechanism")
 		} else if e.token.qualifier == qErr {
-			m.WriteString(fmt.Sprint(": bad or missing qualifier"))
+			m.WriteString(": bad or missing qualifier")
 		}
 	}
 	if p.Len() > 0 {
