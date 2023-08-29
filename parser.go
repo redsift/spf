@@ -90,21 +90,21 @@ func (e SyntaxError) TokenString() string {
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	sender           string
-	domain           string
-	heloDomain       string
-	ip               net.IP
-	query            string
-	resolver         Resolver
-	listener         Listener
-	ignoreMatches    bool
-	options          []Option
-	visited          *stringsStack
-	evaluatedOn      time.Time
-	receivingFQDN    string
-	stopAtError      func(error) bool
-	partialMacros    bool
-	firstMatchResult Result
+	sender          string
+	domain          string
+	heloDomain      string
+	ip              net.IP
+	query           string
+	resolver        Resolver
+	listener        Listener
+	ignoreMatches   bool
+	options         []Option
+	visited         *stringsStack
+	evaluatedOn     time.Time
+	receivingFQDN   string
+	stopAtError     func(error) bool
+	partialMacros   bool
+	firstMatchFound bool
 }
 
 // newParser creates new Parser objects and returns its reference.
@@ -120,12 +120,11 @@ func newParser(opts ...Option) *parser {
 func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:         NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:          opts,
-		visited:          visited,
-		receivingFQDN:    "unknown",
-		evaluatedOn:      time.Now().UTC(),
-		firstMatchResult: None,
+		resolver:      NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:       opts,
+		visited:       visited,
+		receivingFQDN: "unknown",
+		evaluatedOn:   time.Now().UTC(),
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -266,18 +265,15 @@ func (p *parser) check() (Result, string, unused, error) {
 		}
 
 		// Store the first match result if not already set
-		if p.ignoreMatches && matches && p.firstMatchResult == None {
-			p.firstMatchResult = result
+		if p.ignoreMatches && matches && !p.firstMatchFound {
+			p.firstMatchFound = true
+			p.fireFirstMatch(result, err)
 		}
 
 		p.fireNonMatch(token, result, err)
 
 		// in walker-mode we want to count number of errors and check the counter against some threshold
 		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
-			if p.firstMatchResult != None {
-				return p.firstMatchResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
-			}
-
 			return unreliableResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
 		}
 
@@ -290,9 +286,6 @@ func (p *parser) check() (Result, string, unused, error) {
 	}
 
 	if p.ignoreMatches {
-		if p.firstMatchResult != None {
-			return p.firstMatchResult, "", unused{}, nil
-		}
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
 
@@ -353,6 +346,13 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, ttl time.Dura
 		return
 	}
 	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, ttl, e)
+}
+
+func (p *parser) fireFirstMatch(r Result, e error) {
+	if p.listener == nil {
+		return
+	}
+	p.listener.FireFirstMatch(r, e)
 }
 
 func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {

@@ -80,6 +80,10 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 	// fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
 }
 
+func (p *Printer) FireFirstMatch(r spf.Result, err error) {
+	fmt.Fprintf(p.w, "%sFIRST-MATCH: %s, %v\n", strings.Repeat("  ", p.c), r, err)
+}
+
 func (p *Printer) LookupTXT(name string) ([]string, time.Duration, error) {
 	fmt.Fprintf(p.w, "%s  lookup(TXT) %s\n", strings.Repeat("  ", p.c), name)
 	atomic.AddInt64(&p.lc, 1)
