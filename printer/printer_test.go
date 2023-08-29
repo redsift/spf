@@ -274,8 +274,8 @@ func ExamplePrinter_ignoreMatches() {
 
 	fmt.Printf("## of lookups: %d\n", p.LookupsCount())
 
-	// output:
-	// CHECK_HOST("0.0.0.0", "subito.it.", "aspmx.l.google.com")
+	//  output:
+	//  CHECK_HOST("0.0.0.0", "subito.it.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) subito.it.
 	//   SPF: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   v=spf1
@@ -305,7 +305,6 @@ func ExamplePrinter_ignoreMatches() {
 	//     ?all
 	//     FIRST-MATCH: neutral, <nil>
 	//   = 8, "24m51s", , result is unreliable with IgnoreMatches option enabled
-	//   FIRST-MATCH: permerror, result is unreliable with IgnoreMatches option enabled
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
@@ -315,7 +314,6 @@ func ExamplePrinter_ignoreMatches() {
 	//     ip4:198.2.128.0/18 (198.2.128.0/18)
 	//     ip4:148.105.8.0/21 (148.105.8.0/21)
 	//     ?all
-	//     FIRST-MATCH: neutral, <nil>
 	//   = 8, "2m32s", , result is unreliable with IgnoreMatches option enabled
 	//   ip4:109.168.127.160/27 (109.168.127.160/27)
 	//   ip4:212.31.252.64/27 (212.31.252.64/27)
