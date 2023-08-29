@@ -268,7 +268,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		}
 
 		// Store the first match result if not already set
-		if p.ignoreMatches && matches && *p.firstMatchFound == false {
+		if p.ignoreMatches && matches && !*p.firstMatchFound {
 			*p.firstMatchFound = true
 			// should only be called once
 			p.fireFirstMatch(result, err)
