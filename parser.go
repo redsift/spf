@@ -350,9 +350,10 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, ttl time.Dura
 }
 
 func (p *parser) fireFirstMatch(r Result, e error) {
-	if p.listener == nil {
+	if p.listener == nil || p.fireFirstMatchOnce == nil {
 		return
 	}
+
 	p.fireFirstMatchOnce.Do(func() {
 		p.listener.FirstMatch(r, e)
 	})
