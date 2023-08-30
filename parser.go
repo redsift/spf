@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -90,44 +91,42 @@ func (e SyntaxError) TokenString() string {
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	sender        string
-	domain        string
-	heloDomain    string
-	ip            net.IP
-	query         string
-	resolver      Resolver
-	listener      Listener
-	ignoreMatches bool
-	options       []Option
-	visited       *stringsStack
-	evaluatedOn   time.Time
-	receivingFQDN string
-	stopAtError   func(error) bool
-	partialMacros bool
-	// flag to indicate we have already called fireFirstMatch(..)
-	firstMatchFound *bool
+	sender             string
+	domain             string
+	heloDomain         string
+	ip                 net.IP
+	query              string
+	resolver           Resolver
+	listener           Listener
+	ignoreMatches      bool
+	options            []Option
+	visited            *stringsStack
+	evaluatedOn        time.Time
+	receivingFQDN      string
+	stopAtError        func(error) bool
+	partialMacros      bool
+	fireFirstMatchOnce *sync.Once
 }
 
 // newParser creates new Parser objects and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
 func newParser(opts ...Option) *parser {
-	var firstMatchFound = false
-	return newParserWithVisited(newStringsStack(), &firstMatchFound, opts...)
+	return newParserWithVisited(newStringsStack(), new(sync.Once), opts...)
 }
 
 // newParserWithVisited creates new Parser objects with prepopulated map of visited domains and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
-func newParserWithVisited(visited *stringsStack, firstMatchFound *bool, opts ...Option) *parser {
+func newParserWithVisited(visited *stringsStack, fireFirstMatchOnce *sync.Once, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:        NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:         opts,
-		visited:         visited,
-		receivingFQDN:   "unknown",
-		evaluatedOn:     time.Now().UTC(),
-		firstMatchFound: firstMatchFound,
+		resolver:           NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:            opts,
+		visited:            visited,
+		receivingFQDN:      "unknown",
+		evaluatedOn:        time.Now().UTC(),
+		fireFirstMatchOnce: fireFirstMatchOnce,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -190,7 +189,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", "", ErrSPFNotFound
 	}
 
-	r, expl, u, err = newParserWithVisited(p.visited, p.firstMatchFound, p.options...).with(spf, sender, domain, ip).check()
+	r, expl, u, err = newParserWithVisited(p.visited, p.fireFirstMatchOnce, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -268,9 +267,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		}
 
 		// Store the first match result if not already set
-		if p.ignoreMatches && matches && !*p.firstMatchFound {
-			*p.firstMatchFound = true
-			// should only be called once
+		if p.ignoreMatches && matches {
 			p.fireFirstMatch(result, err)
 		}
 
@@ -356,7 +353,9 @@ func (p *parser) fireFirstMatch(r Result, e error) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.FireFirstMatch(r, e)
+	p.fireFirstMatchOnce.Do(func() {
+		p.listener.FirstMatch(r, e)
+	})
 }
 
 func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
