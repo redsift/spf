@@ -12,5 +12,6 @@ type Listener interface {
 	Directive(unused bool, qualifier, mechanism, value, effectiveValue string)
 	NonMatch(qualifier, mechanism, value string, result Result, err error)
 	Match(qualifier, mechanism, value string, result Result, explanation string, ttl time.Duration, err error)
+	FirstMatch(r Result, err error)
 	MatchingIP(qualifier, mechanism, value string, fqdn string, ipn net.IPNet, host string, ip net.IP)
 }

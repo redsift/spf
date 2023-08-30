@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -90,42 +91,42 @@ func (e SyntaxError) TokenString() string {
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	sender           string
-	domain           string
-	heloDomain       string
-	ip               net.IP
-	query            string
-	resolver         Resolver
-	listener         Listener
-	ignoreMatches    bool
-	options          []Option
-	visited          *stringsStack
-	evaluatedOn      time.Time
-	receivingFQDN    string
-	stopAtError      func(error) bool
-	partialMacros    bool
-	firstMatchResult Result
+	sender             string
+	domain             string
+	heloDomain         string
+	ip                 net.IP
+	query              string
+	resolver           Resolver
+	listener           Listener
+	ignoreMatches      bool
+	options            []Option
+	visited            *stringsStack
+	evaluatedOn        time.Time
+	receivingFQDN      string
+	stopAtError        func(error) bool
+	partialMacros      bool
+	fireFirstMatchOnce *sync.Once
 }
 
 // newParser creates new Parser objects and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
 func newParser(opts ...Option) *parser {
-	return newParserWithVisited(newStringsStack(), opts...)
+	return newParserWithVisited(newStringsStack(), new(sync.Once), opts...)
 }
 
 // newParserWithVisited creates new Parser objects with prepopulated map of visited domains and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
-func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
+func newParserWithVisited(visited *stringsStack, fireFirstMatchOnce *sync.Once, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:         NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:          opts,
-		visited:          visited,
-		receivingFQDN:    "unknown",
-		evaluatedOn:      time.Now().UTC(),
-		firstMatchResult: None,
+		resolver:           NewLimitedResolver(&DNSResolver{}, 10, 10),
+		options:            opts,
+		visited:            visited,
+		receivingFQDN:      "unknown",
+		evaluatedOn:        time.Now().UTC(),
+		fireFirstMatchOnce: fireFirstMatchOnce,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -188,7 +189,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		return None, "", "", ErrSPFNotFound
 	}
 
-	r, expl, u, err = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
+	r, expl, u, err = newParserWithVisited(p.visited, p.fireFirstMatchOnce, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -266,18 +267,14 @@ func (p *parser) check() (Result, string, unused, error) {
 		}
 
 		// Store the first match result if not already set
-		if p.ignoreMatches && matches && p.firstMatchResult == None {
-			p.firstMatchResult = result
+		if p.ignoreMatches && matches {
+			p.fireFirstMatch(result, err)
 		}
 
 		p.fireNonMatch(token, result, err)
 
 		// in walker-mode we want to count number of errors and check the counter against some threshold
 		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
-			if p.firstMatchResult != None {
-				return p.firstMatchResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
-			}
-
 			return unreliableResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
 		}
 
@@ -290,9 +287,6 @@ func (p *parser) check() (Result, string, unused, error) {
 	}
 
 	if p.ignoreMatches {
-		if p.firstMatchResult != None {
-			return p.firstMatchResult, "", unused{}, nil
-		}
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
 
@@ -353,6 +347,16 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, ttl time.Dura
 		return
 	}
 	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, ttl, e)
+}
+
+func (p *parser) fireFirstMatch(r Result, e error) {
+	if p.listener == nil || p.fireFirstMatchOnce == nil {
+		return
+	}
+
+	p.fireFirstMatchOnce.Do(func() {
+		p.listener.FirstMatch(r, e)
+	})
 }
 
 func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
