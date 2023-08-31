@@ -705,6 +705,7 @@ func TestParseInclude(t *testing.T) {
 		{173, 20, 21, 1},
 	}
 
+	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
 		{&Token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
 		{&Token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
@@ -717,12 +718,6 @@ func TestParseInclude(t *testing.T) {
 
 	for i, testcase := range testcases {
 		for j, ip := range ips {
-			opts := []Option{WithResolver(testResolver)}
-			if testcase.ignoreMatches {
-				opts = append(opts, IgnoreMatches())
-			}
-			p := newParser(opts...).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
-
 			p.ip = ip
 			match, result, _ := p.parseInclude(testcase.Input)
 			if testcase.Match != match {
@@ -1414,8 +1409,8 @@ func TestCheckHost_Loops(t *testing.T) {
 			},
 			[]Option{WithResolver(testResolver)},
 		},
-		{"walker mode, errors below threshold", "example.com", Permerror, nil, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
-		{"walker mode, errors above threshold", "example.com", Permerror, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
+		{"walker mode, errors below threshold", "example.com", unreliableResult, ErrUnreliableResult, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(4)}},
+		{"walker mode, errors above threshold", "example.com", unreliableResult, ErrTooManyErrors, []Option{WithResolver(testResolver), IgnoreMatches(), ErrorsThreshold(2)}},
 	}
 
 	ip := net.ParseIP("10.0.0.1")

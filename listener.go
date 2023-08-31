@@ -11,8 +11,9 @@ type Listener interface {
 	Directive(unused bool, qualifier, mechanism, value, effectiveValue string)
 	NonMatch(qualifier, mechanism, value string, result Result, err error)
 	Match(qualifier, mechanism, value string, result Result, explanation string, extras *ResponseExtras, err error)
+	FirstMatch(r Result, err error)
 	MatchingIP(qualifier, mechanism, value string, fqdn string, ipn net.IPNet, host string, ip net.IP)
-	// FireVoidLookup Should only be called after a Directive or CheckHost call, to ensure count is updated to correct
+	// VoidLookup Should only be called after a Directive or CheckHost call, to ensure count is updated to correct
 	// directive and state is correct
-	FireVoidLookup(token *Token, fqdn string)
+	VoidLookup(token *Token, fqdn string)
 }
