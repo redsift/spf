@@ -140,7 +140,7 @@ func ExamplePrinter() {
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
 	//     lookup(PTR) 0.0.0.0
-	//   VOID: ptr, ptr.test.redsift.io.
+	//   VOID: ptr.test.redsift.io.
 	//   ~all
 	// = softfail, &{299000000000 false}, , <nil>
 	// ## of lookups: 15
@@ -258,7 +258,7 @@ func ExamplePrinter_voids() {
 	//     include:err008.3.spf.qa.redsift.tech (err008.3.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.3.spf.qa.redsift.tech.", "redsift.io")
 	//         lookup(TXT:strict) err008.3.spf.qa.redsift.tech.
-	//       VOID: , err008.3.spf.qa.redsift.tech.
+	//       VOID: err008.3.spf.qa.redsift.tech.
 	//     = none, &{0 true}, , permanent DNS error
 	//     include:err008.4.spf.qa.redsift.tech (err008.4.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.4.spf.qa.redsift.tech.", "redsift.io")
@@ -268,12 +268,12 @@ func ExamplePrinter_voids() {
 	//       include:err008.5.spf.qa.redsift.tech (err008.5.spf.qa.redsift.tech.)
 	//       CHECK_HOST("0.0.0.0", "err008.5.spf.qa.redsift.tech.", "redsift.io")
 	//           lookup(TXT:strict) err008.5.spf.qa.redsift.tech.
-	//         VOID: , err008.5.spf.qa.redsift.tech.
+	//         VOID: err008.5.spf.qa.redsift.tech.
 	//       = none, &{0 true}, , SPF record not found
 	//       include:err008.6.spf.qa.redsift.tech (err008.6.spf.qa.redsift.tech.)
 	//       CHECK_HOST("0.0.0.0", "err008.6.spf.qa.redsift.tech.", "redsift.io")
 	//           lookup(TXT:strict) err008.6.spf.qa.redsift.tech.
-	//         VOID: , err008.6.spf.qa.redsift.tech.
+	//         VOID: err008.6.spf.qa.redsift.tech.
 	//       = none, &{0 true}, , permanent DNS error
 	//       -all
 	//     = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
@@ -282,6 +282,7 @@ func ExamplePrinter_voids() {
 	//   -all
 	// = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
 	// ## of lookups: 6
+
 }
 
 func ExamplePrinter_ignoreMatches() {
@@ -409,7 +410,7 @@ func ExamplePrinter_ignoreMatches() {
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
 	//     lookup(PTR) 0.0.0.0
-	//   VOID: ptr, ptr.test.redsift.io.
+	//   VOID: ptr.test.redsift.io.
 	//   ~all
 	//   FIRST-MATCH: softfail, <nil>
 	// = 8, &{299000000000 false}, , result is unreliable with IgnoreMatches option enabled

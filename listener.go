@@ -15,5 +15,5 @@ type Listener interface {
 	MatchingIP(qualifier, mechanism, value string, fqdn string, ipn net.IPNet, host string, ip net.IP)
 	// VoidLookup Should only be called after a Directive or CheckHost call, to ensure count is updated to correct
 	// directive and state is correct
-	VoidLookup(token *Token, fqdn string)
+	VoidLookup(qualifier, mechanism, value string, fqdn string)
 }

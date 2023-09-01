@@ -358,7 +358,12 @@ func (p *parser) fireVoidLookup(t *Token, fqdn string) {
 		return
 	}
 
-	p.listener.VoidLookup(t, fqdn)
+	if t == nil {
+		p.listener.VoidLookup("", "", "", fqdn)
+		return
+	}
+
+	p.listener.VoidLookup(t.qualifier.String(), t.mechanism.String(), t.value, fqdn)
 }
 
 func (p *parser) fireFirstMatch(r Result, e error) {

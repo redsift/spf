@@ -78,9 +78,9 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 	// fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
 }
 
-func (p *Printer) VoidLookup(token *spf.Token, fdqn string) {
+func (p *Printer) VoidLookup(qualifier, mechanism, value string, fqdn string) {
 	// do nothing
-	fmt.Fprintf(p.w, "%sVOID: %v, %s\n", strings.Repeat("  ", p.c), token.String(), fdqn)
+	fmt.Fprintf(p.w, "%sVOID: %s\n", strings.Repeat("  ", p.c), fqdn)
 }
 
 func (p *Printer) FirstMatch(r spf.Result, err error) {
