@@ -121,7 +121,7 @@ func newParser(opts ...Option) *parser {
 func newParserWithVisited(visited *stringsStack, fireFirstMatchOnce *sync.Once, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:           NewLimitedResolver(&DNSResolver{}, 10, 10),
+		resolver:           NewLimitedResolver(&DNSResolver{}, 10, 10, 2),
 		options:            opts,
 		visited:            visited,
 		receivingFQDN:      "unknown",
@@ -141,10 +141,10 @@ func newParserWithVisited(visited *stringsStack, fireFirstMatchOnce *sync.Once, 
 // and error as the reason for the encountered problem.
 func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, spf string, err error) {
 	var u unused
-	var ttl time.Duration
+	var extras *ResponseExtras
 	p.fireCheckHost(ip, domain, sender)
 	defer func() {
-		p.fireCheckHostResult(r, expl, ttl, err)
+		p.fireCheckHostResult(r, expl, extras, err)
 		for _, t := range u.mechanisms {
 			p.fireUnusedDirective(t)
 		}
@@ -166,7 +166,11 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	}
 
 	var txts []string
-	txts, ttl, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
+	txts, extras, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
+	if extras.Void() {
+		p.fireVoidLookup(nil, domain)
+	}
+
 	switch err {
 	case nil:
 		// continue
@@ -223,7 +227,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		matches bool
 		token   *token
 		i       int
-		ttl     time.Duration
+		extras  *ResponseExtras
 	)
 
 	mechanisms, redirect, explanation, err := sortTokens(tokens)
@@ -240,19 +244,19 @@ func (p *parser) check() (Result, string, unused, error) {
 			all = true
 			matches, result, err = p.parseAll(token)
 		case tA:
-			matches, result, ttl, err = p.parseA(token)
+			matches, result, extras, err = p.parseA(token)
 		case tIP4:
 			matches, result, err = p.parseIP4(token)
 		case tIP6:
 			matches, result, err = p.parseIP6(token)
 		case tMX:
-			matches, result, ttl, err = p.parseMX(token)
+			matches, result, extras, err = p.parseMX(token)
 		case tInclude:
 			matches, result, err = p.parseInclude(token)
 		case tExists:
-			matches, result, ttl, err = p.parseExists(token)
+			matches, result, extras, err = p.parseExists(token)
 		case tPTR:
-			matches, result, err = p.parsePtr(token)
+			matches, result, extras, err = p.parsePtr(token)
 		default:
 			p.fireDirective(token, "")
 		}
@@ -262,7 +266,7 @@ func (p *parser) check() (Result, string, unused, error) {
 			if result == Fail && explanation != nil {
 				s, err = p.handleExplanation(explanation)
 			}
-			p.fireMatch(token, result, s, ttl, err)
+			p.fireMatch(token, result, s, extras, err)
 			return result, s, unused{mechanisms[i+1:], redirect}, err
 		}
 
@@ -300,11 +304,11 @@ func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
 	p.listener.CheckHost(ip, domain, sender)
 }
 
-func (p *parser) fireCheckHostResult(r Result, explanation string, ttl time.Duration, e error) {
+func (p *parser) fireCheckHostResult(r Result, explanation string, extras *ResponseExtras, e error) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.CheckHostResult(r, explanation, ttl, e)
+	p.listener.CheckHostResult(r, explanation, extras, e)
 }
 
 func (p *parser) fireSPFRecord(s string) {
@@ -342,11 +346,24 @@ func (p *parser) fireNonMatch(t *token, r Result, e error) {
 	p.listener.NonMatch(t.qualifier.String(), t.mechanism.String(), t.value, r, e)
 }
 
-func (p *parser) fireMatch(t *token, r Result, explanation string, ttl time.Duration, e error) {
+func (p *parser) fireMatch(t *token, r Result, explanation string, extras *ResponseExtras, e error) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, ttl, e)
+	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, extras, e)
+}
+
+func (p *parser) fireVoidLookup(t *token, fqdn string) {
+	if p.listener == nil {
+		return
+	}
+
+	if t == nil {
+		p.listener.VoidLookup("", "", "", fqdn)
+		return
+	}
+
+	p.listener.VoidLookup(t.qualifier.String(), t.mechanism.String(), t.value, fqdn)
 }
 
 func (p *parser) fireFirstMatch(r Result, e error) {
@@ -461,7 +478,7 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 	return ip.Equal(p.ip), result, nil
 }
 
-func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
+func (p *parser) parseA(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
 		fqdn, _, err = parseMacro(p, fqdn, false)
@@ -475,12 +492,12 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, ttl, err := p.resolver.MatchIP(fqdn, func(ip net.IP, host string) (bool, error) {
+	found, extras, err := p.resolver.MatchIP(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -493,10 +510,14 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	return found, result, ttl, err
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
+	}
+
+	return found, result, extras, err
 }
 
-func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
+func (p *parser) parseMX(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
 		fqdn, _, err = parseMacro(p, fqdn, false)
@@ -510,11 +531,11 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, SyntaxError{t, err}
 	}
 
 	result, _ := matchingResult(t.qualifier)
-	found, ttl, err := p.resolver.MatchMX(fqdn, func(ip net.IP, host string) (bool, error) {
+	found, extras, err := p.resolver.MatchMX(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -527,10 +548,13 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
 	}
-	return found, result, ttl, err
+	if err != nil {
+		return true, Permerror, nil, SyntaxError{t, err}
+	}
+	return found, result, extras, err
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
@@ -594,7 +618,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	}
 }
 
-func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
+func (p *parser) parseExists(t *token) (bool, Result, *ResponseExtras, error) {
 	resolvedDomain, missingMacros, err := parseMacroToken(p, t)
 	if err == nil {
 		resolvedDomain, err = truncateFQDN(resolvedDomain)
@@ -609,27 +633,31 @@ func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, SyntaxError{t, err}
 	}
 	if resolvedDomain == "" {
-		return true, Permerror, 0, SyntaxError{t, ErrEmptyDomain}
+		return true, Permerror, nil, SyntaxError{t, ErrEmptyDomain}
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, ttl, err := p.resolver.Exists(resolvedDomain)
+	found, extras, err := p.resolver.Exists(resolvedDomain)
+	if extras.Void() {
+		p.fireVoidLookup(t, resolvedDomain)
+	}
+
 	switch err {
 	case nil:
-		return found, result, ttl, nil
+		return found, result, extras, nil
 	case ErrDNSPermerror:
-		return false, result, 0, nil
+		return false, result, nil, nil
 	default:
-		return false, Temperror, 0, err // was true 8-|
+		return false, Temperror, nil, err // was true 8-|
 	}
 }
 
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
-func (p *parser) parsePtr(t *token) (bool, Result, error) {
+func (p *parser) parsePtr(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn := domainSpec(t.value, p.domain)
 	fqdn, _, err := parseMacro(p, fqdn, false)
 	if err == nil {
@@ -641,19 +669,23 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, nil, SyntaxError{t, err}
 	}
 
-	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
+	ptrs, extras, err := p.resolver.LookupPTR(p.ip.String())
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
+	}
+
 	switch err {
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return false, Permerror, err
+		return false, Permerror, extras, err
 	case ErrDNSPermerror:
-		return false, None, err
+		return false, None, extras, err
 	default:
-		return false, Temperror, err
+		return false, Temperror, extras, err
 	}
 
 	result, _ := matchingResult(t.qualifier)
@@ -673,11 +705,11 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 		}
 
 		if found {
-			return true, result, nil
+			return true, result, nil, nil
 		}
 	}
 
-	return false, Fail, nil
+	return false, Fail, nil, nil
 }
 
 func (p *parser) handleRedirect(t *token) (Result, error) {
