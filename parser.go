@@ -65,16 +65,16 @@ func (e SpfError) Error() string {
 	if p.Len() > 0 {
 		m.WriteByte(' ')
 		m.WriteByte('[')
-		m.WriteString(p.String())
+		m.WriteString(strings.TrimSuffix(p.String(), " "))
 		m.WriteByte(']')
 	}
 	return m.String()
 }
 
-func Wrap(t *token, err error) error {
+func wrap(t *token, err error) error {
 	// try to grab the original error kind
 	if st, ok := err.(SpfError); ok {
-		return SpfError{st.Kind(), t, err}
+		return SpfError{st.Kind(), t, st}
 	} else {
 		return SpfError{Syntax, t, err}
 	}
@@ -606,7 +606,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	*/
 
 	if err != nil {
-		err = Wrap(t, err)
+		err = wrap(t, err)
 	}
 
 	switch theirResult {
