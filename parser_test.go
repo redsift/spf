@@ -84,21 +84,21 @@ func TestMatchingResult(t *testing.T) {
 
 func TestTokensSoriting(t *testing.T) {
 	// stub := "stub"
-	versionToken := &Token{tVersion, qPlus, "spf1"}
+	versionToken := &token{tVersion, qPlus, "spf1"}
 	type TestCase struct {
-		Tokens      []*Token
-		ExpTokens   []*Token
-		Redirect    *Token
-		Explanation *Token
+		Tokens      []*token
+		ExpTokens   []*token
+		Redirect    *token
+		Explanation *token
 	}
 
 	testcases := []TestCase{
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tAll, qMinus, ""},
 			},
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tAll, qMinus, ""},
 			},
@@ -106,62 +106,62 @@ func TestTokensSoriting(t *testing.T) {
 			nil,
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tMX, qTilde, "example.org"},
 			},
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tMX, qTilde, "example.org"},
 			},
-			&Token{tRedirect, qPlus, "_spf.example.com"},
+			&token{tRedirect, qPlus, "_spf.example.com"},
 			nil,
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tIP4, qTilde, "192.168.1.2"},
 				{tExp, qPlus, "Something went wrong"},
 			},
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tIP4, qTilde, "192.168.1.2"},
 			},
-			&Token{tRedirect, qPlus, "_spf.example.com"},
-			&Token{tExp, qPlus, "Something went wrong"},
+			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{tExp, qPlus, "Something went wrong"},
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			&Token{tRedirect, qPlus, "_spf.example.com"},
+			&token{tRedirect, qPlus, "_spf.example.com"},
 			nil,
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 				{tExp, qPlus, "You are wrong"},
 			},
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			&Token{tRedirect, qPlus, "_spf.example.com"},
-			&Token{tExp, qPlus, "You are wrong"},
+			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{tExp, qPlus, "You are wrong"},
 		},
 	}
 
@@ -184,14 +184,14 @@ func TestTokensSoriting(t *testing.T) {
 }
 
 func TestTokensSoritingHandleErrors(t *testing.T) {
-	versionToken := &Token{tVersion, qPlus, "spf1"}
+	versionToken := &token{tVersion, qPlus, "spf1"}
 	type TestCase struct {
-		Tokens []*Token
+		Tokens []*token
 	}
 
 	testcases := []TestCase{
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tMX, qMinus, "example.org"},
@@ -199,7 +199,7 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 			},
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tMX, qMinus, "example.org"},
@@ -208,7 +208,7 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 			},
 		},
 		{
-			[]*Token{
+			[]*token{
 				versionToken,
 				{tRedirect, qPlus, "_spf.example.com"},
 				{tAll, qMinus, ""},
@@ -228,30 +228,30 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 /* Test Parse.parse* methods here */
 
 type TokenTestCase struct {
-	Input         *Token
+	Input         *token
 	Result        Result
 	Match         bool
 	ignoreMatches bool
 }
 
 type TokenTestCaseWithTTL struct {
-	Input  *Token
+	Input  *token
 	Result Result
 	Match  bool
 	Ttl    time.Duration
 }
 
-// TODO(marek): Add testfunction for tVersion Token
+// TODO(marek): Add testfunction for tVersion token
 
 func TestParseAll(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&Token{tAll, qPlus, ""}, Pass, true, false},
-		{&Token{tAll, qMinus, ""}, Fail, true, false},
-		{&Token{tAll, qQuestionMark, ""}, Neutral, true, false},
-		{&Token{tAll, qTilde, ""}, Softfail, true, false},
-		{&Token{tAll, tErr, ""}, Permerror, true, false},
-		{&Token{tAll, qPlus, ""}, Pass, true, true},
-		{&Token{tAll, qPlus, ""}, Pass, true, true},
+		{&token{tAll, qPlus, ""}, Pass, true, false},
+		{&token{tAll, qMinus, ""}, Fail, true, false},
+		{&token{tAll, qQuestionMark, ""}, Neutral, true, false},
+		{&token{tAll, qTilde, ""}, Softfail, true, false},
+		{&token{tAll, tErr, ""}, Permerror, true, false},
+		{&token{tAll, qPlus, ""}, Pass, true, true},
+		{&token{tAll, qPlus, ""}, Pass, true, true},
 	}
 
 	var match bool
@@ -323,37 +323,37 @@ func TestParseA(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{172, 18, 0, 2})
 	testcases := []TokenTestCaseWithTTL{
-		{&Token{tA, qPlus, "positive.matching.com"}, Pass, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/32"}, Pass, true, 2},
-		{&Token{tA, qPlus, "negative.matching.com"}, Pass, false, 0},
-		{&Token{tA, qPlus, "range.matching.com/16"}, Pass, true, 2},
-		{&Token{tA, qPlus, "range.matching.com/128"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "idontexist"}, Pass, false, 0},
-		{&Token{tA, qPlus, "#%$%^"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "lb.matching.com"}, Pass, true, 2},
-		{&Token{tA, qMinus, ""}, Fail, true, 0},
-		{&Token{tA, qTilde, ""}, Softfail, true, 0},
+		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/32"}, Pass, true, 2},
+		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, 0},
+		{&token{tA, qPlus, "range.matching.com/16"}, Pass, true, 2},
+		{&token{tA, qPlus, "range.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "idontexist"}, Pass, false, 0},
+		{&token{tA, qPlus, "#%$%^"}, Permerror, true, 2},
+		{&token{tA, qPlus, "lb.matching.com"}, Pass, true, 2},
+		{&token{tA, qMinus, ""}, Fail, true, 0},
+		{&token{tA, qTilde, ""}, Softfail, true, 0},
 
 		// expect (Permerror, true) results as a result of syntax errors
-		{&Token{tA, qPlus, "range.matching.com/wrongmask"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "range.matching.com/129"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "range.matching.com/-1"}, Permerror, true, 2},
+		{&token{tA, qPlus, "range.matching.com/wrongmask"}, Permerror, true, 2},
+		{&token{tA, qPlus, "range.matching.com/129"}, Permerror, true, 2},
+		{&token{tA, qPlus, "range.matching.com/-1"}, Permerror, true, 2},
 
 		// expect (Permerror, true) due to wrong netmasks.
 		// It's a syntax error to specify a netmask over 32 bits for IPv4 addresses
-		{&Token{tA, qPlus, "negative.matching.com/128"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "negative.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
 
 		// test dual-cidr syntax
-		{&Token{tA, qPlus, "positive.matching.com//128"}, Pass, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/32/"}, Pass, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/0/0"}, Pass, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/24/24"}, Pass, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true, 2},
-		{&Token{tA, qPlus, "//32"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/32/"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/0/0"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/24/24"}, Pass, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true, 2},
+		{&token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true, 2},
+		{&token{tA, qPlus, "//32"}, Pass, true, 2},
 	}
 
 	var match bool
@@ -399,19 +399,19 @@ func TestParseAIpv6(t *testing.T) {
 	defer dns.HandleRemove("negative.matching.com.")
 
 	testcases := []TokenTestCase{
-		{&Token{tA, qPlus, "positive.matching.com"}, Pass, true, false},
-		{&Token{tA, qPlus, "positive.matching.com//128"}, Pass, true, false},
-		{&Token{tA, qPlus, "positive.matching.com//64"}, Pass, true, false},
+		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, false},
+		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, false},
+		{&token{tA, qPlus, "positive.matching.com//64"}, Pass, true, false},
 
-		{&Token{tA, qPlus, "negative.matching.com"}, Pass, false, false},
-		{&Token{tA, qPlus, "negative.matching.com//64"}, Pass, false, false},
-		{&Token{tA, qPlus, "positive.matching.com// "}, Permerror, true, false},
-		{&Token{tA, qPlus, "positive.matching.com/ "}, Permerror, true, false},
-		{&Token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, false},
+		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, false},
+		{&token{tA, qPlus, "negative.matching.com//64"}, Pass, false, false},
+		{&token{tA, qPlus, "positive.matching.com// "}, Permerror, true, false},
+		{&token{tA, qPlus, "positive.matching.com/ "}, Permerror, true, false},
+		{&token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, false},
 
-		{&Token{tA, qPlus, "positive.matching.com"}, Pass, true, true},
-		{&Token{tA, qPlus, "negative.matching.com"}, Pass, false, true},
-		{&Token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, true},
+		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, true},
+		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, true},
+		{&token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, true},
 	}
 
 	var match bool
@@ -439,24 +439,24 @@ func TestParseAIpv6(t *testing.T) {
 
 func TestParseIp4(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&Token{tIP4, qPlus, "127.0.0.1"}, Pass, true, false},
-		{&Token{tIP4, qMinus, "127.0.0.1"}, Fail, true, false},
-		{&Token{tIP4, qQuestionMark, "127.0.0.1"}, Neutral, true, false},
-		{&Token{tIP4, qTilde, "127.0.0.1"}, Softfail, true, false},
+		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true, false},
+		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true, false},
+		{&token{tIP4, qQuestionMark, "127.0.0.1"}, Neutral, true, false},
+		{&token{tIP4, qTilde, "127.0.0.1"}, Softfail, true, false},
 
-		{&Token{tIP4, qTilde, "127.0.0.0/16"}, Softfail, true, false},
+		{&token{tIP4, qTilde, "127.0.0.0/16"}, Softfail, true, false},
 
-		{&Token{tIP4, qTilde, "192.168.1.2"}, Softfail, false, false},
-		{&Token{tIP4, qMinus, "192.168.1.5/16"}, Fail, false, false},
+		{&token{tIP4, qTilde, "192.168.1.2"}, Softfail, false, false},
+		{&token{tIP4, qMinus, "192.168.1.5/16"}, Fail, false, false},
 
-		{&Token{tIP4, qMinus, "random string"}, Permerror, true, false},
-		{&Token{tIP4, qMinus, "2001:4860:0:2001::68"}, Permerror, true, false},
-		{&Token{tIP4, qMinus, "2001:4860:0:2001::68/48"}, Permerror, true, false},
+		{&token{tIP4, qMinus, "random string"}, Permerror, true, false},
+		{&token{tIP4, qMinus, "2001:4860:0:2001::68"}, Permerror, true, false},
+		{&token{tIP4, qMinus, "2001:4860:0:2001::68/48"}, Permerror, true, false},
 
-		{&Token{tIP4, qPlus, "127.0.0.1"}, Pass, true, true},
-		{&Token{tIP4, qMinus, "127.0.0.1"}, Fail, true, true},
-		{&Token{tIP4, qMinus, "random string"}, Permerror, true, true},
-		{&Token{tIP4, qMinus, "random string"}, Permerror, true, true},
+		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true, true},
+		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true, true},
+		{&token{tIP4, qMinus, "random string"}, Permerror, true, true},
+		{&token{tIP4, qMinus, "random string"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -482,21 +482,21 @@ func TestParseIp4(t *testing.T) {
 
 func TestParseIp6(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&Token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, false},
-		{&Token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, false},
-		{&Token{tIP6, qQuestionMark, "2001:4860:0:2001::68"}, Neutral, true, false},
-		{&Token{tIP6, qTilde, "2001:4860:0:2001::68"}, Softfail, true, false},
+		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, false},
+		{&token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, false},
+		{&token{tIP6, qQuestionMark, "2001:4860:0:2001::68"}, Neutral, true, false},
+		{&token{tIP6, qTilde, "2001:4860:0:2001::68"}, Softfail, true, false},
 
-		{&Token{tIP6, qTilde, "2001:4860:0:2001::68/64"}, Softfail, true, false},
+		{&token{tIP6, qTilde, "2001:4860:0:2001::68/64"}, Softfail, true, false},
 
-		{&Token{tIP6, qTilde, "::1"}, Softfail, false, false},
-		{&Token{tIP6, qMinus, "2002::/16"}, Fail, false, false},
+		{&token{tIP6, qTilde, "::1"}, Softfail, false, false},
+		{&token{tIP6, qMinus, "2002::/16"}, Fail, false, false},
 
-		{&Token{tIP6, qMinus, "random string"}, Permerror, true, false},
+		{&token{tIP6, qMinus, "random string"}, Permerror, true, false},
 
-		{&Token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, true},
-		{&Token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, true},
-		{&Token{tIP6, qTilde, "::1"}, Softfail, false, true},
+		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, true},
+		{&token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, true},
+		{&token{tIP6, qTilde, "::1"}, Softfail, false, true},
 	}
 
 	var match bool
@@ -522,11 +522,11 @@ func TestParseIp6(t *testing.T) {
 
 func TestParseIp6WithIp4(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&Token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, false},
-		{&Token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, false},
+		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, false},
+		{&token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, false},
 
-		{&Token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, true},
-		{&Token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, true},
+		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, true},
+		{&token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -582,18 +582,18 @@ func TestParseMX(t *testing.T) {
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{0, 0, 0, 0})
 
 	testcases := []TokenTestCaseWithTTL{
-		{&Token{tMX, qPlus, "matching.com"}, Pass, true, 2},
-		{&Token{tMX, qPlus, "matching.com/24"}, Pass, true, 2},
-		{&Token{tMX, qPlus, "matching.com/24/64"}, Pass, true, 2},
-		{&Token{tMX, qPlus, "/24"}, Pass, true, 2}, // domain is matching.com.
-		{&Token{tMX, qPlus, ""}, Pass, true, 0},
-		{&Token{tMX, qMinus, ""}, Fail, true, 0},
-		{&Token{tMX, qPlus, "idontexist"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.com"}, Pass, true, 2},
+		{&token{tMX, qPlus, "matching.com/24"}, Pass, true, 2},
+		{&token{tMX, qPlus, "matching.com/24/64"}, Pass, true, 2},
+		{&token{tMX, qPlus, "/24"}, Pass, true, 2}, // domain is matching.com.
+		{&token{tMX, qPlus, ""}, Pass, true, 0},
+		{&token{tMX, qMinus, ""}, Fail, true, 0},
+		{&token{tMX, qPlus, "idontexist"}, Pass, false, 0},
 		// Mind that the domain is matching.NET and we expect Parser
 		// to not match results.
-		{&Token{tMX, qPlus, "matching.net"}, Pass, false, 0},
-		{&Token{tMX, qPlus, "matching.net/24"}, Pass, false, 0},
-		{&Token{tMX, qPlus, "matching.net/24/64"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.net"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.net/24"}, Pass, false, 0},
+		{&token{tMX, qPlus, "matching.net/24/64"}, Pass, false, 0},
 	}
 
 	var match bool
@@ -639,14 +639,14 @@ func TestParseMXNegativeTests(t *testing.T) {
 	defer dns.HandleRemove("matching.com.")
 
 	testcases := []TokenTestCase{
-		{&Token{tMX, qPlus, "matching.com"}, Pass, false, false},
-		{&Token{tMX, qPlus, ""}, Pass, false, false},
-		// TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
-		{&Token{tMX, qPlus, "idontexist"}, Pass, false, false},
-		{&Token{tMX, qMinus, "matching.com"}, Fail, false, false},
+		{&token{tMX, qPlus, "matching.com"}, Pass, false, false},
+		{&token{tMX, qPlus, ""}, Pass, false, false},
+		// TokenTestCase{&token{tMX, qPlus, "google.com"}, Pass, false},
+		{&token{tMX, qPlus, "idontexist"}, Pass, false, false},
+		{&token{tMX, qMinus, "matching.com"}, Fail, false, false},
 
-		{&Token{tMX, qPlus, "idontexist"}, Pass, false, true},
-		{&Token{tMX, qMinus, "matching.com"}, Fail, false, true},
+		{&token{tMX, qPlus, "idontexist"}, Pass, false, true},
+		{&token{tMX, qMinus, "matching.com"}, Fail, false, true},
 	}
 
 	var match bool
@@ -707,13 +707,13 @@ func TestParseInclude(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
-		{&Token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
-		{&Token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
-		{&Token{tInclude, qTilde, "_spf.matching.net"}, Softfail, true, false},
-		{&Token{tInclude, qQuestionMark, "_spf.matching.net"}, Neutral, true, false},
+		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
+		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
+		{&token{tInclude, qTilde, "_spf.matching.net"}, Softfail, true, false},
+		{&token{tInclude, qQuestionMark, "_spf.matching.net"}, Neutral, true, false},
 
-		{&Token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, true},
-		{&Token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, true},
+		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, true},
+		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, true},
 	}
 
 	for i, testcase := range testcases {
@@ -777,17 +777,17 @@ func TestParseIncludeNegative(t *testing.T) {
 	}
 
 	testcases := []TokenTestCase{
-		{&Token{tInclude, qMinus, "_spf.matching.net"}, None, false, false},
-		{&Token{tInclude, qPlus, "_spf.matching.net"}, None, false, false},
+		{&token{tInclude, qMinus, "_spf.matching.net"}, None, false, false},
+		{&token{tInclude, qPlus, "_spf.matching.net"}, None, false, false},
 		// TODO(zaccone): Following 3 tests are practically identitcal
-		{&Token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, false},
-		{&Token{tInclude, qPlus, "nospf.matching.net"}, Permerror, true, false},
-		{&Token{tInclude, qPlus, "idontexist.matching.net"}, Permerror, true, false},
+		{&token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, false},
+		{&token{tInclude, qPlus, "nospf.matching.net"}, Permerror, true, false},
+		{&token{tInclude, qPlus, "idontexist.matching.net"}, Permerror, true, false},
 
 		// empty input qualifier results in Permerror withour recursive calls
-		{&Token{tInclude, qMinus, ""}, Permerror, true, false},
+		{&token{tInclude, qMinus, ""}, Permerror, true, false},
 
-		{&Token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, true},
+		{&token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -835,17 +835,17 @@ func TestParseExists(t *testing.T) {
 	defer dns.HandleRemove("positive.matching.com.")
 
 	testcases := []TokenTestCase{
-		{&Token{tExists, qPlus, "positive.matching.net"}, Pass, true, false},
-		{&Token{tExists, qMinus, "positive.matching.net"}, Fail, true, false},
-		{&Token{tExists, qMinus, "idontexist.matching.net"}, Fail, false, false},
-		{&Token{tExists, qMinus, "idontexist.%{d}"}, Fail, false, false},
-		{&Token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
-		{&Token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
-		{&Token{tExists, qTilde, ""}, Permerror, true, false},
-		{&Token{tExists, qTilde, "invalidsyntax%{}"}, Permerror, true, false},
+		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, false},
+		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, false},
+		{&token{tExists, qMinus, "idontexist.matching.net"}, Fail, false, false},
+		{&token{tExists, qMinus, "idontexist.%{d}"}, Fail, false, false},
+		{&token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
+		{&token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
+		{&token{tExists, qTilde, ""}, Permerror, true, false},
+		{&token{tExists, qTilde, "invalidsyntax%{}"}, Permerror, true, false},
 
-		{&Token{tExists, qPlus, "positive.matching.net"}, Pass, true, true},
-		{&Token{tExists, qMinus, "positive.matching.net"}, Fail, true, true},
+		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, true},
+		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, true},
 	}
 
 	for _, testcase := range testcases {
@@ -1404,8 +1404,8 @@ func TestCheckHost_Loops(t *testing.T) {
 		{
 			"normal mode", "ab.example.com", Permerror,
 			SyntaxError{
-				&Token{tInclude, qPlus, "ba.example.com"},
-				SyntaxError{&Token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
+				&token{tInclude, qPlus, "ba.example.com"},
+				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
 			},
 			[]Option{WithResolver(testResolver)},
 		},
@@ -1420,7 +1420,7 @@ func TestCheckHost_Loops(t *testing.T) {
 			if diff := cmp.Diff(test.r, r); diff != "" {
 				t.Errorf("CheckHost() result differs: (-want +got)\n%s", diff)
 			}
-			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, Token{}, errors.New(""))); diff != "" {
+			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, token{}, errors.New(""))); diff != "" {
 				t.Errorf("CheckHost() errors differs: (-want +got)\n%s", diff)
 			}
 		})
