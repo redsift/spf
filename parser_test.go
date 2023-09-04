@@ -1087,13 +1087,13 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			"v=spf1 include:loop.matching.net -all",
 			net.IP{10, 0, 0, 1},
 			Permerror,
-			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net ]",
+			"infinite recursion detected [include:loop.matching.net include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
 		},
 		{
 			"v=spf1 redirect=loop.matching.net",
 			net.IP{10, 0, 0, 1},
 			Permerror,
-			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net ]",
+			"infinite recursion detected [include:loop1.matching.net include:loop2.matching.net include:loop.matching.net]",
 		},
 	}
 
