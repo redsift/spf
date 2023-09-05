@@ -3,6 +3,7 @@ package spf
 import (
 	"errors"
 	"fmt"
+	"github.com/redsift/spf/v2/spferr"
 	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"reflect"
@@ -1322,11 +1323,11 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
-		{"notexists", None, SpfError{kind: DNS, err: ErrDNSPermerror}},
-		{"v-spf2", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
-		{"v-spf10", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
-		{"no-record", None, SpfError{kind: Validation, err: ErrSPFNotFound}},
-		{"many-records", Permerror, SpfError{kind: Validation, err: ErrTooManySPFRecords}},
+		{"notexists", None, SpfError{kind: spferr.KindDNS, err: ErrDNSPermerror}},
+		{"v-spf2", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"v-spf10", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"no-record", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"many-records", Permerror, SpfError{kind: spferr.KindValidation, err: ErrTooManySPFRecords}},
 		{"mixed-records", Pass, nil},
 	}
 
@@ -1401,9 +1402,9 @@ func TestCheckHost_Loops(t *testing.T) {
 		{
 			"normal mode", "ab.example.com", Permerror,
 			SpfError{
-				Validation,
+				spferr.KindValidation,
 				&token{tInclude, qPlus, "ba.example.com"},
-				SpfError{Validation, &token{tInclude, qPlus, "ab.example.com"}, SpfError{kind: Validation, err: ErrLoopDetected}},
+				SpfError{spferr.KindValidation, &token{tInclude, qPlus, "ab.example.com"}, SpfError{kind: spferr.KindValidation, err: ErrLoopDetected}},
 			},
 			[]Option{WithResolver(testResolver)},
 		},
