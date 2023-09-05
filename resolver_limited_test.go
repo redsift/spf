@@ -38,7 +38,7 @@ func TestLimitedResolver(t *testing.T) {
 	defer dns.HandleRemove("mxmustfail.")
 
 	{
-		r := NewLimitedResolver(testResolver, 2, 2)
+		r := NewLimitedResolver(testResolver, 2, 2, 2)
 		a, _, err := r.LookupTXT("domain.")
 		if len(a) == 0 || err != nil {
 			t.Error("failed on 1st LookupTXT")
@@ -49,7 +49,7 @@ func TestLimitedResolver(t *testing.T) {
 		}
 	}
 	{
-		r := NewLimitedResolver(testResolver, 2, 2)
+		r := NewLimitedResolver(testResolver, 2, 2, 2)
 		b, _, err := r.Exists("domain.")
 		if !b || err != nil {
 			t.Error("failed on 1st Exists")
@@ -65,7 +65,7 @@ func TestLimitedResolver(t *testing.T) {
 		}
 	}
 	{
-		r := NewLimitedResolver(testResolver, 2, 2)
+		r := NewLimitedResolver(testResolver, 2, 2, 2)
 		b, _, err := r.MatchIP("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if !b || err != nil {
 			t.Error("failed on 1st MatchIP")
@@ -76,7 +76,7 @@ func TestLimitedResolver(t *testing.T) {
 		}
 	}
 	{
-		r := NewLimitedResolver(testResolver, 2, 2)
+		r := NewLimitedResolver(testResolver, 2, 2, 2)
 		b, _, err := r.MatchMX("domain.", newMatcher(net.ParseIP("10.0.0.1")))
 		if !b || err != nil {
 			t.Error("failed on 1st MatchMX")
@@ -87,10 +87,45 @@ func TestLimitedResolver(t *testing.T) {
 		}
 	}
 	{
-		r := NewLimitedResolver(testResolver, 2, 2)
+		r := NewLimitedResolver(testResolver, 2, 2, 2)
 		b, _, err := r.MatchMX("mxmustfail.", newMatcher(net.ParseIP("10.0.0.10")))
 		if b || err != ErrDNSLimitExceeded {
 			t.Errorf("MatchMX got: %v, %v; want false, ErrDNSLimitExceeded", b, err)
+		}
+	}
+	{
+		dns.HandleFunc("void.test.", Zone(map[uint16][]string{}))
+		defer dns.HandleRemove("void.test.")
+		dns.HandleFunc("non-void.test.", Zone(map[uint16][]string{
+			dns.TypeTXT: {
+				`non-void.test. 0 IN TXT "ok"`,
+			},
+		}))
+		defer dns.HandleRemove("non-void.test.")
+
+		r := NewLimitedResolver(testResolver, 6, 6, 2)
+		_, _, err := r.LookupTXTStrict("void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		_, _, err = r.LookupTXTStrict("void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		res, _, err := r.LookupTXTStrict("non-void.test.")
+		if err != nil {
+			t.Errorf("LookupTXTStrict expected err=nil, got: %v", err)
+		}
+
+		if len(res) == 0 {
+			t.Error("LookupTXTStrict result is empty")
+		}
+
+		_, _, err = r.LookupTXTStrict("void.test.")
+		if err != ErrDNSVoidLookupLimitExceeded {
+			t.Errorf("LookupTXTStrict got: %v; want ErrDNSVoidLookupLimitExceeded", err)
 		}
 	}
 }

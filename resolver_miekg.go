@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -166,102 +167,119 @@ func (r *miekgDNSResolver) exchange(req *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 
-// LookupTXT returns the DNS TXT records for the given domain name and
-// the minimum TTL
-func (r *miekgDNSResolver) LookupTXT(name string) ([]string, time.Duration, error) {
+// LookupTXT returns the DNS TXT records for the given domain name,
+// along with additional response information in ResponseExtras
+func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	var ttl uint32 = 1<<32 - 1
-
 	txts := make([]string, 0, len(res.Answer))
+	var minTTL uint32 = math.MaxUint32
+
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
 			txts = append(txts, strings.Join(r.Txt, ""))
-			if d := a.Header().Ttl; d < ttl {
-				ttl = d
+			if d := a.Header().Ttl; d < minTTL {
+				minTTL = d
 			}
 		}
 	}
 
 	if len(txts) == 0 {
-		ttl = 0
+		minTTL = 0
 	}
 
-	return txts, time.Duration(ttl) * time.Second, nil
+	extras := NewResponseExtras(
+		time.Duration(minTTL)*time.Second,
+		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
+	)
+
+	return txts, extras, nil
 }
 
-// LookupTXTStrict returns DNS TXT records for the given name, however it
-// will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
+// LookupTXTStrict returns DNS TXT records for the given domain name,
+// and returns ErrDNSPermerror upon returned NXDOMAIN (RCODE 3),
+// along with additional response information in ResponseExtras.
+func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeTXT)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
 	if res.Rcode == dns.RcodeNameError {
-		return nil, 0, ErrDNSPermerror
+		// Mark it as a void lookup as we got NXDomain
+		return nil, NewResponseExtras(0, true), ErrDNSPermerror
 	}
 
-	var ttl uint32 = 1<<32 - 1
-
+	var minTTL uint32 = math.MaxUint32
 	txts := make([]string, 0, len(res.Answer))
+
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.TXT); ok {
 			txts = append(txts, strings.Join(r.Txt, ""))
-			if d := a.Header().Ttl; d < ttl {
-				ttl = d
+			if d := a.Header().Ttl; d < minTTL {
+				minTTL = d
 			}
 		}
 	}
 
 	if len(txts) == 0 {
-		ttl = 0
+		minTTL = 0
 	}
 
-	return txts, time.Duration(ttl) * time.Second, nil
+	extras := NewResponseExtras(
+		time.Duration(minTTL)*time.Second,
+		len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
+	)
+
+	return txts, extras, nil
 }
 
-// Exists is used for a DNS A RR lookup (even when the
-// connection type is IPv6).  If any A record is returned, this
-// mechanism matches and returns the ttl.
-func (r *miekgDNSResolver) Exists(name string) (bool, time.Duration, error) {
+// Exists is used for a DNS A RR lookup (even when the connection type is IPv6).
+// If any A record is returned, this mechanism matches and a bool,
+// along with additional response information in ResponseExtras.
+func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeA)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return false, 0, err
+		return false, nil, err
 	}
 
-	var ttl uint32 = 1<<32 - 1
-
+	var minTTL uint32 = 1<<32 - 1
 	as := 0
+
 	for _, a := range res.Answer {
 		if _, ok := a.(*dns.A); ok {
 			as++
-			if d := a.Header().Ttl; d < ttl {
-				ttl = d
+			if d := a.Header().Ttl; d < minTTL {
+				minTTL = d
 			}
 		}
 	}
 
 	if as == 0 {
-		ttl = 0
+		minTTL = 0
 	}
 
-	return len(res.Answer) > 0, time.Duration(ttl), nil
+	extras := NewResponseExtras(
+		time.Duration(minTTL)*time.Second,
+		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
+	)
+
+	return len(res.Answer) > 0, extras, nil
 }
 
-func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, time.Duration, error) {
+func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, *ResponseExtras, error) {
 	var ttl uint32 = 1<<32 - 1
 
 	for _, rr := range rrs {
@@ -280,17 +298,18 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, time.Durat
 		}
 
 		if m, e := matcher(ip, name); m || e != nil {
-			return m, time.Duration(ttl) * time.Second, e
+			return m, NewResponseExtras(time.Duration(ttl)*time.Second, false), e
 		}
 	}
-	return false, 0, nil
+	return false, nil, nil
 }
 
 // MatchIP provides an address lookup, which should be done on the name
-// using the type of lookup (A or AAAA).
-// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
-func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+// using the type of lookup (A or AAAA). Then IPMatcherFunc is used to compare
+// the checked IP to the returned address(es). If any address matches,
+// the mechanism matches and returns the TTL,
+// along with additional response information in ResponseExtras.
+func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	var wg sync.WaitGroup
 	qTypes := []uint16{dns.TypeA, dns.TypeAAAA}
 	hits := make(chan hit, len(qTypes))
@@ -304,12 +323,12 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, ti
 			req.SetQuestion(name, qType)
 			res, err := r.exchange(req)
 			if err != nil {
-				hits <- hit{false, 0, err}
+				hits <- hit{false, nil, err}
 				return
 			}
 
-			if m, ttl, e := matchIP(res.Answer, matcher, name); m || e != nil {
-				hits <- hit{m, ttl, e}
+			if m, extras, e := matchIP(res.Answer, matcher, name); m || e != nil {
+				hits <- hit{m, extras, e}
 				return
 			}
 		}
@@ -328,24 +347,25 @@ func (r *miekgDNSResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, ti
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.ttl, h.err
+			return h.found, h.extras, h.err
 		}
 	}
 
-	return false, 0, nil
+	return false, nil, nil
 }
 
-// MatchMX is similar to MatchIP but first performs an MX lookup on the
-// name.  Then it performs an address lookup on each MX name returned.
-// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-// If any address matches, the mechanism matches
-func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+// MatchMX is similar to MatchIP but first performs an MX lookup on the name.
+// Then it performs an address lookup on each MX name returned.
+// IPMatcherFunc is used to compare the checked IP to the returned address(es).
+// If any address matches, the mechanism matches and returns a bool,
+// along with additional response information in ResponseExtras.
+func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(name, dns.TypeMX)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return false, 0, err
+		return false, nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -386,41 +406,46 @@ func (r *miekgDNSResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, ti
 
 	for h := range hits {
 		if h.found || h.err != nil {
-			return h.found, h.ttl, h.err
+			return h.found, h.extras, h.err
 		}
 	}
 
-	return false, 0, nil
+	return false, nil, nil
 }
 
-// LookupPTR returns the DNS PTR records for the given IP and
-// the minimum TTL
-func (r *miekgDNSResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+// LookupPTR returns the DNS PTR records for the given address,
+// along with additional response information in ResponseExtras.
+func (r *miekgDNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
 	req := new(dns.Msg)
 	req.SetQuestion(NewPTRAddress(name), dns.TypePTR)
 
 	res, err := r.exchange(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	var ttl uint32 = 1<<32 - 1
-
+	var minTTL uint32 = 1<<32 - 1
 	ptrs := make([]string, 0, len(res.Answer))
+
 	for _, a := range res.Answer {
 		if r, ok := a.(*dns.PTR); ok {
 			ptrs = append(ptrs, r.Ptr)
-			if d := a.Header().Ttl; d < ttl {
-				ttl = d
+			if d := a.Header().Ttl; d < minTTL {
+				minTTL = d
 			}
 		}
 	}
 
 	if len(ptrs) == 0 {
-		ttl = 0
+		minTTL = 0
 	}
 
-	return ptrs, time.Duration(ttl) * time.Second, nil
+	extras := NewResponseExtras(
+		time.Duration(minTTL)*time.Second,
+		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
+	)
+
+	return ptrs, extras, nil
 }
 
 func NewPTRAddress(address string) string {

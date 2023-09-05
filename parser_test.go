@@ -641,7 +641,7 @@ func TestParseMXNegativeTests(t *testing.T) {
 	testcases := []TokenTestCase{
 		{&token{tMX, qPlus, "matching.com"}, Pass, false, false},
 		{&token{tMX, qPlus, ""}, Pass, false, false},
-		// TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
+		// TokenTestCase{&token{tMX, qPlus, "google.com"}, Pass, false},
 		{&token{tMX, qPlus, "idontexist"}, Pass, false, false},
 		{&token{tMX, qMinus, "matching.com"}, Fail, false, false},
 
@@ -1035,7 +1035,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4, 2))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1105,7 +1105,7 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			}
 			done := make(chan R)
 			go func() {
-				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
+				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4, 2))).with(test.query, "matching.com", "matching.com", test.ip).check()
 				done <- R{result, err}
 			}()
 			select {

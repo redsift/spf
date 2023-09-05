@@ -318,7 +318,7 @@ func TestMacro_Domains(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4, 2)),
 				HeloDomain(test.helo),
 				EvaluatedOn(time.Unix(1, 0)),
 				ReceivingFQDN(test.receivingFQDN)).
