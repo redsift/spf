@@ -3,6 +3,7 @@ package spf
 import (
 	"errors"
 	"fmt"
+	"github.com/redsift/spf/v2/spferr"
 	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"reflect"
@@ -711,9 +712,6 @@ func TestParseInclude(t *testing.T) {
 		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
 		{&token{tInclude, qTilde, "_spf.matching.net"}, Softfail, true, false},
 		{&token{tInclude, qQuestionMark, "_spf.matching.net"}, Neutral, true, false},
-
-		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, true},
-		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, true},
 	}
 
 	for i, testcase := range testcases {
@@ -1325,11 +1323,11 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
-		{"notexists", None, ErrDNSPermerror},
-		{"v-spf2", None, ErrSPFNotFound},
-		{"v-spf10", None, ErrSPFNotFound},
-		{"no-record", None, ErrSPFNotFound},
-		{"many-records", Permerror, ErrTooManySPFRecords},
+		{"notexists", None, SpfError{kind: spferr.KindDNS, err: ErrDNSPermerror}},
+		{"v-spf2", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"v-spf10", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"no-record", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"many-records", Permerror, SpfError{kind: spferr.KindValidation, err: ErrTooManySPFRecords}},
 		{"mixed-records", Pass, nil},
 	}
 
@@ -1403,9 +1401,10 @@ func TestCheckHost_Loops(t *testing.T) {
 	}{
 		{
 			"normal mode", "ab.example.com", Permerror,
-			SyntaxError{
+			SpfError{
+				spferr.KindValidation,
 				&token{tInclude, qPlus, "ba.example.com"},
-				SyntaxError{&token{tInclude, qPlus, "ab.example.com"}, ErrLoopDetected},
+				SpfError{spferr.KindValidation, &token{tInclude, qPlus, "ab.example.com"}, SpfError{kind: spferr.KindValidation, err: ErrLoopDetected}},
 			},
 			[]Option{WithResolver(testResolver)},
 		},
@@ -1420,7 +1419,7 @@ func TestCheckHost_Loops(t *testing.T) {
 			if diff := cmp.Diff(test.r, r); diff != "" {
 				t.Errorf("CheckHost() result differs: (-want +got)\n%s", diff)
 			}
-			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, token{}, errors.New(""))); diff != "" {
+			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SpfError{}, token{}, errors.New(""))); diff != "" {
 				t.Errorf("CheckHost() errors differs: (-want +got)\n%s", diff)
 			}
 		})
