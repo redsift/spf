@@ -84,7 +84,7 @@ func TestMatchingResult(t *testing.T) {
 
 func TestTokensSoriting(t *testing.T) {
 	// stub := "stub"
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 	type TestCase struct {
 		Tokens      []*token
 		ExpTokens   []*token
@@ -115,7 +115,7 @@ func TestTokensSoriting(t *testing.T) {
 				versionToken,
 				{tMX, qTilde, "example.org"},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			nil,
 		},
 		{
@@ -129,8 +129,8 @@ func TestTokensSoriting(t *testing.T) {
 				versionToken,
 				{tIP4, qTilde, "192.168.1.2"},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
-			&token{tExp, qPlus, "Something went wrong"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			&token{mechanism: tExp, qualifier: qPlus, value: "Something went wrong"},
 		},
 		{
 			[]*token{
@@ -144,7 +144,7 @@ func TestTokensSoriting(t *testing.T) {
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			nil,
 		},
 		{
@@ -160,8 +160,8 @@ func TestTokensSoriting(t *testing.T) {
 				{tMX, qTilde, "example.org"},
 				{tAll, qQuestionMark, ""},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
-			&token{tExp, qPlus, "You are wrong"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			&token{mechanism: tExp, qualifier: qPlus, value: "You are wrong"},
 		},
 	}
 
@@ -184,7 +184,7 @@ func TestTokensSoriting(t *testing.T) {
 }
 
 func TestTokensSoritingHandleErrors(t *testing.T) {
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 	type TestCase struct {
 		Tokens []*token
 	}
@@ -954,6 +954,7 @@ func TestParse(t *testing.T) {
 		{"v=spf1 redirect=%{i}.matching.com", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 a:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 mx:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
+		{"v=spf1 xss=<script>alert('SPF-XSS')</script> +all", net.IP{10, 0, 0, 1}, Pass},
 	}
 
 	for _, testcase := range parseTestCases {
@@ -963,7 +964,8 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, _, err := newParser(
+				WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1075,6 +1077,13 @@ func TestHandleRedirect(t *testing.T) {
 	}))
 	defer dns.HandleRemove("_spf.matching.net.")
 
+	dns.HandleFunc("pass.matching.net.", Zone(map[uint16][]string{
+		dns.TypeTXT: {
+			"pass.matching.net. 0 IN TXT \"v=spf1 +all\"",
+		},
+	}))
+	defer dns.HandleRemove("pass.matching.net.")
+
 	dns.HandleFunc("nospf.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			"nospf.matching.net. 0 IN TXT \"no spf here\"",
@@ -1130,6 +1139,8 @@ func TestHandleRedirect(t *testing.T) {
 	defer dns.HandleRemove("matching.com.")
 
 	ParseTestCases := []parseTestCase{
+		{"v=spf1 -all redirect=pass.matching.net", net.IP{172, 100, 100, 1}, Fail},
+		{"v=spf1 redirect=pass.matching.net -all", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 -all redirect=_spf.matching.net", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 redirect=_spf.matching.net -all", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 redirect=_spf.matching.net", net.IP{172, 100, 100, 1}, Pass},

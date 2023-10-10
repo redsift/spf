@@ -32,35 +32,36 @@ func TestLexerScanIdent(t *testing.T) {
 		query string
 		want  *token
 	}{
-		{"v=spf1", &token{tVersion, qPlus, "spf1"}},
-		{"v=spf1 ", &token{tVersion, qPlus, "spf1"}},
-		{"A:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
-		{"a:127.0.0.1", &token{tA, qPlus, "127.0.0.1"}},
-		{"a", &token{tA, qPlus, ""}},
-		{"A", &token{tA, qPlus, ""}},
-		{"a:127.0.0.1 ", &token{tA, qPlus, "127.0.0.1"}},
-		{"?a:127.0.0.1   ", &token{tA, qQuestionMark, "127.0.0.1"}},
-		{"?ip6:2001::43   ", &token{tIP6, qQuestionMark, "2001::43"}},
-		{"+ip6:::1", &token{tIP6, qPlus, "::1"}},
-		{"^ip6:2001::4", &token{tErr, qErr, "^ip6:2001::4"}},
-		{"-all", &token{tAll, qMinus, ""}},
-		{"-all ", &token{tAll, qMinus, ""}},
-		{"-mx:localhost", &token{tMX, qMinus, "localhost"}},
-		{"mx", &token{tMX, qPlus, ""}},
-		{"a:", &token{tErr, qErr, "a:"}},
-		{"?mx:localhost", &token{tMX, qQuestionMark, "localhost"}},
-		{"?random:localhost", &token{tErr, qErr, "?random:localhost"}},
-		{"-:localhost", &token{tErr, qErr, "-:localhost"}},
-		{"", &token{tErr, qErr, ""}},
-		{"qowie", &token{tErr, qErr, "qowie"}},
-		{"~+all", &token{tErr, qErr, "~+all"}},
-		{"-~all", &token{tErr, qErr, "-~all"}},
-		{"mx", &token{tMX, qPlus, ""}},
-		{"mx/24", &token{tMX, qPlus, "/24"}},
-		{"~mx/24", &token{tMX, qTilde, "/24"}},
-		{"a", &token{tA, qPlus, ""}},
-		{"a/24", &token{tA, qPlus, "/24"}},
-		{"~a/24", &token{tA, qTilde, "/24"}},
+		{"v=spf1", &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}},
+		{"v=spf1 ", &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}},
+		{"A:127.0.0.1", &token{mechanism: tA, qualifier: qPlus, value: "127.0.0.1"}},
+		{"a:127.0.0.1", &token{mechanism: tA, qualifier: qPlus, value: "127.0.0.1"}},
+		{"a", &token{mechanism: tA, qualifier: qPlus, value: ""}},
+		{"A", &token{mechanism: tA, qualifier: qPlus, value: ""}},
+		{"a:127.0.0.1 ", &token{mechanism: tA, qualifier: qPlus, value: "127.0.0.1"}},
+		{"?a:127.0.0.1   ", &token{mechanism: tA, qualifier: qQuestionMark, value: "127.0.0.1"}},
+		{"?ip6:2001::43   ", &token{mechanism: tIP6, qualifier: qQuestionMark, value: "2001::43"}},
+		{"+ip6:::1", &token{mechanism: tIP6, qualifier: qPlus, value: "::1"}},
+		{"^ip6:2001::4", &token{mechanism: tErr, qualifier: qErr, value: "^ip6:2001::4"}},
+		{"-all", &token{mechanism: tAll, qualifier: qMinus, value: ""}},
+		{"-all ", &token{mechanism: tAll, qualifier: qMinus, value: ""}},
+		{"-mx:localhost", &token{mechanism: tMX, qualifier: qMinus, value: "localhost"}},
+		{"mx", &token{mechanism: tMX, qualifier: qPlus, value: ""}},
+		{"a:", &token{mechanism: tErr, qualifier: qErr, value: "a:"}},
+		{"?mx:localhost", &token{mechanism: tMX, qualifier: qQuestionMark, value: "localhost"}},
+		{"?random:localhost", &token{mechanism: tErr, qualifier: qErr, value: "?random:localhost"}},
+		{"-:localhost", &token{mechanism: tErr, qualifier: qErr, value: "-:localhost"}},
+		{"", &token{mechanism: tErr, qualifier: qErr, value: ""}},
+		{"qowie", &token{mechanism: tErr, qualifier: qErr, value: "qowie"}},
+		{"~+all", &token{mechanism: tErr, qualifier: qErr, value: "~+all"}},
+		{"-~all", &token{mechanism: tErr, qualifier: qErr, value: "-~all"}},
+		{"mx", &token{mechanism: tMX, qualifier: qPlus, value: ""}},
+		{"mx/24", &token{mechanism: tMX, qualifier: qPlus, value: "/24"}},
+		{"~mx/24", &token{mechanism: tMX, qualifier: qTilde, value: "/24"}},
+		{"a", &token{mechanism: tA, qualifier: qPlus, value: ""}},
+		{"a/24", &token{mechanism: tA, qualifier: qPlus, value: "/24"}},
+		{"~a/24", &token{mechanism: tA, qualifier: qTilde, value: "/24"}},
+		{"xss=<script>alert('SPF-XSS')</script>", &token{mechanism: tUnknownModifier, qualifier: qPlus, value: "<script>alert('SPF-XSS')</script>"}},
 	}
 
 	for _, test := range tests {
@@ -74,12 +75,60 @@ func TestLexerScanIdent(t *testing.T) {
 	}
 }
 
+func TestIsValidName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"John", true},
+		{"john.doe", true},
+		{"john-doe_123", true},
+		{"123john", false},
+		{".john", false},
+		{"", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			actual := reNameRFC7208.MatchString(test.input)
+			if actual != test.expected {
+				t.Errorf("Expected %v, got %v", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestIsValidMacroString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"%{s}", true},
+		{"Hello", true},
+		{"%{d10r.}", true},
+		{"%%", true},
+		{"%_", true},
+		{"%-", true},
+		{"%", false},
+		{"", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			actual := reMacroStringRFC7208.MatchString(test.input)
+			if actual != test.expected {
+				t.Errorf("Expected %v, got %v", test.expected, actual)
+			}
+		})
+	}
+}
+
 func TestLexFunc(t *testing.T) {
 	type TestPair struct {
 		Record string
 		Tokens []*token
 	}
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 
 	testpairs := []TestPair{
 		{
