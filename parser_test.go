@@ -3,6 +3,7 @@ package spf
 import (
 	"errors"
 	"fmt"
+	"github.com/redsift/spf/v2/spferr"
 	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"reflect"
@@ -228,9 +229,10 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 /* Test Parse.parse* methods here */
 
 type TokenTestCase struct {
-	Input  *token
-	Result Result
-	Match  bool
+	Input         *token
+	Result        Result
+	Match         bool
+	ignoreMatches bool
 }
 
 type TokenTestCaseWithTTL struct {
@@ -243,19 +245,27 @@ type TokenTestCaseWithTTL struct {
 // TODO(marek): Add testfunction for tVersion token
 
 func TestParseAll(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
-		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true},
-		{&token{mechanism: tAll, qualifier: qMinus, value: ""}, Fail, true},
-		{&token{mechanism: tAll, qualifier: qQuestionMark, value: ""}, Neutral, true},
-		{&token{mechanism: tAll, qualifier: qTilde, value: ""}, Softfail, true},
-		{&token{mechanism: tAll, qualifier: tErr, value: ""}, Permerror, true},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, false},
+		{&token{mechanism: tAll, qualifier: qMinus, value: ""}, Fail, true, false},
+		{&token{mechanism: tAll, qualifier: qQuestionMark, value: ""}, Neutral, true, false},
+		{&token{mechanism: tAll, qualifier: qTilde, value: ""}, Softfail, true, false},
+		{&token{mechanism: tAll, qualifier: tErr, value: ""}, Permerror, true, false},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, true},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, true},
 	}
 
 	var match bool
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseAll(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch")
@@ -389,17 +399,20 @@ func TestParseAIpv6(t *testing.T) {
 	dns.HandleFunc("negative.matching.com.", negativeMatchingCom)
 	defer dns.HandleRemove("negative.matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", ipv6)
 	testcases := []TokenTestCase{
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true},
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//128"}, Pass, true},
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//64"}, Pass, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//128"}, Pass, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//64"}, Pass, true, false},
 
-		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false},
-		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com//64"}, Pass, false},
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com// "}, Permerror, true},
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ "}, Permerror, true},
-		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ / "}, Permerror, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com//64"}, Pass, false, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com// "}, Permerror, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ "}, Permerror, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ / "}, Permerror, true, false},
+
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ / "}, Permerror, true, true},
 	}
 
 	var match bool
@@ -407,6 +420,13 @@ func TestParseAIpv6(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Input.value, func(t *testing.T) {
+			opts := []Option{WithResolver(testResolver)}
+			if testcase.ignoreMatches {
+				opts = append(opts, IgnoreMatches())
+			}
+
+			p := newParser(opts...).with(stub, domain, "matching.com", ipv6)
+
 			match, result, _, _ = p.parseA(testcase.Input)
 			if testcase.Match != match {
 				t.Errorf("Want 'Match' %v, got %v", testcase.Match, match)
@@ -419,27 +439,38 @@ func TestParseAIpv6(t *testing.T) {
 }
 
 func TestParseIp4(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
 	testcases := []TokenTestCase{
-		{&token{mechanism: tIP4, qualifier: qPlus, value: "127.0.0.1"}, Pass, true},
-		{&token{mechanism: tIP4, qualifier: qMinus, value: "127.0.0.1"}, Fail, true},
-		{&token{mechanism: tIP4, qualifier: qQuestionMark, value: "127.0.0.1"}, Neutral, true},
-		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.1"}, Softfail, true},
+		{&token{mechanism: tIP4, qualifier: qPlus, value: "127.0.0.1"}, Pass, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "127.0.0.1"}, Fail, true, false},
+		{&token{mechanism: tIP4, qualifier: qQuestionMark, value: "127.0.0.1"}, Neutral, true, false},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.1"}, Softfail, true, false},
 
-		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.0/16"}, Softfail, true},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.0/16"}, Softfail, true, false},
 
-		{&token{mechanism: tIP4, qualifier: qTilde, value: "192.168.1.2"}, Softfail, false},
-		{&token{mechanism: tIP4, qualifier: qMinus, value: "192.168.1.5/16"}, Fail, false},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "192.168.1.2"}, Softfail, false, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "192.168.1.5/16"}, Fail, false, false},
 
-		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true},
-		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Permerror, true},
-		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68/48"}, Permerror, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Permerror, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68/48"}, Permerror, true, false},
+
+		{&token{mechanism: tIP4, qualifier: qPlus, value: "127.0.0.1"}, Pass, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "127.0.0.1"}, Fail, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, true},
 	}
 
 	var match bool
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseIP4(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch")
@@ -451,26 +482,35 @@ func TestParseIp4(t *testing.T) {
 }
 
 func TestParseIp6(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ipv6)
-
 	testcases := []TokenTestCase{
-		{&token{mechanism: tIP6, qualifier: qPlus, value: "2001:4860:0:2001::68"}, Pass, true},
-		{&token{mechanism: tIP6, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Fail, true},
-		{&token{mechanism: tIP6, qualifier: qQuestionMark, value: "2001:4860:0:2001::68"}, Neutral, true},
-		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68"}, Softfail, true},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "2001:4860:0:2001::68"}, Pass, true, false},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Fail, true, false},
+		{&token{mechanism: tIP6, qualifier: qQuestionMark, value: "2001:4860:0:2001::68"}, Neutral, true, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68"}, Softfail, true, false},
 
-		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68/64"}, Softfail, true},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68/64"}, Softfail, true, false},
 
-		{&token{mechanism: tIP6, qualifier: qTilde, value: "::1"}, Softfail, false},
-		{&token{mechanism: tIP6, qualifier: qMinus, value: "2002::/16"}, Fail, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "::1"}, Softfail, false, false},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2002::/16"}, Fail, false, false},
 
-		{&token{mechanism: tIP6, qualifier: qMinus, value: "random string"}, Permerror, true},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "random string"}, Permerror, true, false},
+
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "2001:4860:0:2001::68"}, Pass, true, true},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Fail, true, true},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "::1"}, Softfail, false, true},
 	}
 
 	var match bool
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ipv6)
+
 		match, result, _ = p.parseIP6(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -482,17 +522,25 @@ func TestParseIp6(t *testing.T) {
 }
 
 func TestParseIp6WithIp4(t *testing.T) {
-	p := newParser(WithResolver(testResolver)).with(stub, stub, stub, ip)
-
 	testcases := []TokenTestCase{
-		{&token{mechanism: tIP6, qualifier: qPlus, value: "127.0.0.1"}, Permerror, true},
-		{&token{mechanism: tIP6, qualifier: qTilde, value: "127.0.0.1"}, Permerror, true},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "127.0.0.1"}, Permerror, true, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "127.0.0.1"}, Permerror, true, false},
+
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "127.0.0.1"}, Permerror, true, true},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "127.0.0.1"}, Permerror, true, true},
 	}
 
 	var match bool
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, stub, stub, ip)
+
 		match, result, _ = p.parseIP6(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -591,20 +639,28 @@ func TestParseMXNegativeTests(t *testing.T) {
 	dns.HandleFunc("matching.com.", mxMatchingCom)
 	defer dns.HandleRemove("matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", net.IP{127, 0, 0, 1})
-
 	testcases := []TokenTestCase{
-		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com"}, Pass, false},
-		{&token{mechanism: tMX, qualifier: qPlus, value: ""}, Pass, false},
-		// TokenTestCase{&Token{tMX, qPlus, "google.com"}, Pass, false},
-		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false},
-		{&token{mechanism: tMX, qualifier: qMinus, value: "matching.com"}, Fail, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com"}, Pass, false, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: ""}, Pass, false, false},
+		// TokenTestCase{&token{tMX, qPlus, "google.com"}, Pass, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false, false},
+		{&token{mechanism: tMX, qualifier: qMinus, value: "matching.com"}, Fail, false, false},
+
+		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false, true},
+		{&token{mechanism: tMX, qualifier: qMinus, value: "matching.com"}, Fail, false, true},
 	}
 
 	var match bool
 	var result Result
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, "matching.com", "matching.com", net.IP{127, 0, 0, 1})
+
 		match, result, _, _ = p.parseMX(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -652,10 +708,10 @@ func TestParseInclude(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
-		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, Pass, true},
-		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, Fail, true},
-		{&token{mechanism: tInclude, qualifier: qTilde, value: "_spf.matching.net"}, Softfail, true},
-		{&token{mechanism: tInclude, qualifier: qQuestionMark, value: "_spf.matching.net"}, Neutral, true},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, Pass, true, false},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, Fail, true, false},
+		{&token{mechanism: tInclude, qualifier: qTilde, value: "_spf.matching.net"}, Softfail, true, false},
+		{&token{mechanism: tInclude, qualifier: qQuestionMark, value: "_spf.matching.net"}, Neutral, true, false},
 	}
 
 	for i, testcase := range testcases {
@@ -717,18 +773,19 @@ func TestParseIncludeNegative(t *testing.T) {
 		{173, 18, 100, 102},
 		{173, 18, 100, 103},
 	}
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", ip)
 
 	testcases := []TokenTestCase{
-		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, None, false},
-		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, None, false},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, None, false, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, None, false, false},
 		// TODO(zaccone): Following 3 tests are practically identitcal
-		{&token{mechanism: tInclude, qualifier: qPlus, value: "_errspf.matching.net"}, Permerror, true},
-		{&token{mechanism: tInclude, qualifier: qPlus, value: "nospf.matching.net"}, Permerror, true},
-		{&token{mechanism: tInclude, qualifier: qPlus, value: "idontexist.matching.net"}, Permerror, true},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_errspf.matching.net"}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "nospf.matching.net"}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "idontexist.matching.net"}, Permerror, true, false},
 
 		// empty input qualifier results in Permerror withour recursive calls
-		{&token{mechanism: tInclude, qualifier: qMinus, value: ""}, Permerror, true},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: ""}, Permerror, true, false},
+
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_errspf.matching.net"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -736,6 +793,13 @@ func TestParseIncludeNegative(t *testing.T) {
 
 	for _, testcase := range testcases {
 		for _, ip := range ips {
+			opts := []Option{WithResolver(testResolver)}
+			if testcase.ignoreMatches {
+				opts = append(opts, IgnoreMatches())
+			}
+
+			p := newParser(opts...).with(stub, "matching.net", "matching.net", ip)
+
 			p.ip = ip
 			match, result, _ = p.parseInclude(testcase.Input)
 			if testcase.Match != match {
@@ -768,19 +832,28 @@ func TestParseExists(t *testing.T) {
 	dns.HandleFunc("positive.matching.com.", Zone(hosts))
 	defer dns.HandleRemove("positive.matching.com.")
 
-	p := newParser(WithResolver(testResolver)).with(stub, "matching.com", "matching.com", ip)
 	testcases := []TokenTestCase{
-		{&token{mechanism: tExists, qualifier: qPlus, value: "positive.matching.net"}, Pass, true},
-		{&token{mechanism: tExists, qualifier: qMinus, value: "positive.matching.net"}, Fail, true},
-		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.matching.net"}, Fail, false},
-		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.%{d}"}, Fail, false},
-		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true},
-		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true},
-		{&token{mechanism: tExists, qualifier: qTilde, value: ""}, Permerror, true},
-		{&token{mechanism: tExists, qualifier: qTilde, value: "invalidsyntax%{}"}, Permerror, true},
+		{&token{mechanism: tExists, qualifier: qPlus, value: "positive.matching.net"}, Pass, true, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "positive.matching.net"}, Fail, true, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.matching.net"}, Fail, false, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.%{d}"}, Fail, false, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: ""}, Permerror, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "invalidsyntax%{}"}, Permerror, true, false},
+
+		{&token{mechanism: tExists, qualifier: qPlus, value: "positive.matching.net"}, Pass, true, true},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "positive.matching.net"}, Fail, true, true},
 	}
 
 	for _, testcase := range testcases {
+		opts := []Option{WithResolver(testResolver)}
+		if testcase.ignoreMatches {
+			opts = append(opts, IgnoreMatches())
+		}
+
+		p := newParser(opts...).with(stub, "matching.com", "matching.com", ip)
+
 		match, result, _, _ := p.parseExists(testcase.Input)
 		if testcase.Match != match {
 			t.Error("Match mismatch, expected ", testcase.Match, " got ", match)
@@ -954,7 +1027,6 @@ func TestParse(t *testing.T) {
 		{"v=spf1 redirect=%{i}.matching.com", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 a:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
 		{"v=spf1 mx:%{i}.matching.com/32 -all", net.IP{10, 0, 0, 1}, Pass},
-		{"v=spf1 xss=<script>alert('SPF-XSS')</script> +all", net.IP{10, 0, 0, 1}, Pass},
 	}
 
 	for _, testcase := range parseTestCases {
@@ -964,8 +1036,7 @@ func TestParse(t *testing.T) {
 		}
 		done := make(chan R)
 		go func() {
-			result, _, _, err := newParser(
-				WithResolver(NewLimitedResolver(testResolver, 5, 4))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
+			result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 5, 4, 2))).with(testcase.Query, "matching.com", "matching.com", testcase.IP).check()
 			done <- R{result, err}
 		}()
 		select {
@@ -1035,7 +1106,7 @@ func TestCheckHost_RecursionLoop(t *testing.T) {
 			}
 			done := make(chan R)
 			go func() {
-				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4))).with(test.query, "matching.com", "matching.com", test.ip).check()
+				result, _, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4, 2))).with(test.query, "matching.com", "matching.com", test.ip).check()
 				done <- R{result, err}
 			}()
 			select {
@@ -1076,13 +1147,6 @@ func TestHandleRedirect(t *testing.T) {
 		},
 	}))
 	defer dns.HandleRemove("_spf.matching.net.")
-
-	dns.HandleFunc("pass.matching.net.", Zone(map[uint16][]string{
-		dns.TypeTXT: {
-			"pass.matching.net. 0 IN TXT \"v=spf1 +all\"",
-		},
-	}))
-	defer dns.HandleRemove("pass.matching.net.")
 
 	dns.HandleFunc("nospf.matching.net.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
@@ -1139,8 +1203,6 @@ func TestHandleRedirect(t *testing.T) {
 	defer dns.HandleRemove("matching.com.")
 
 	ParseTestCases := []parseTestCase{
-		{"v=spf1 -all redirect=pass.matching.net", net.IP{172, 100, 100, 1}, Fail},
-		{"v=spf1 redirect=pass.matching.net -all", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 -all redirect=_spf.matching.net", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 redirect=_spf.matching.net -all", net.IP{172, 100, 100, 1}, Fail},
 		{"v=spf1 redirect=_spf.matching.net", net.IP{172, 100, 100, 1}, Pass},
@@ -1261,11 +1323,11 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
-		{"notexists", None, ErrDNSPermerror},
-		{"v-spf2", None, ErrSPFNotFound},
-		{"v-spf10", None, ErrSPFNotFound},
-		{"no-record", None, ErrSPFNotFound},
-		{"many-records", Permerror, ErrTooManySPFRecords},
+		{"notexists", None, SpfError{kind: spferr.KindDNS, err: ErrDNSPermerror}},
+		{"v-spf2", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"v-spf10", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"no-record", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
+		{"many-records", Permerror, SpfError{kind: spferr.KindValidation, err: ErrTooManySPFRecords}},
 		{"mixed-records", Pass, nil},
 	}
 
@@ -1339,9 +1401,10 @@ func TestCheckHost_Loops(t *testing.T) {
 	}{
 		{
 			"normal mode", "ab.example.com", Permerror,
-			SyntaxError{
+			SpfError{
+				spferr.KindValidation,
 				&token{mechanism: tInclude, qualifier: qPlus, value: "ba.example.com", key: "include"},
-				SyntaxError{&token{mechanism: tInclude, qualifier: qPlus, value: "ab.example.com", key: "include"}, ErrLoopDetected},
+				SpfError{spferr.KindValidation, &token{mechanism: tInclude, qualifier: qPlus, value: "ab.example.com", key: "include"}, SpfError{kind: spferr.KindValidation, err: ErrLoopDetected}},
 			},
 			[]Option{WithResolver(testResolver)},
 		},
@@ -1356,7 +1419,7 @@ func TestCheckHost_Loops(t *testing.T) {
 			if diff := cmp.Diff(test.r, r); diff != "" {
 				t.Errorf("CheckHost() result differs: (-want +got)\n%s", diff)
 			}
-			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SyntaxError{}, token{}, errors.New(""))); diff != "" {
+			if diff := cmp.Diff(test.e, e, deepAllowUnexported(SpfError{}, token{}, errors.New(""))); diff != "" {
 				t.Errorf("CheckHost() errors differs: (-want +got)\n%s", diff)
 			}
 		})

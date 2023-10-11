@@ -5,7 +5,10 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/redsift/spf/v2/spferr"
 )
 
 func matchingResult(qualifier tokenType) (Result, error) {
@@ -19,18 +22,23 @@ func matchingResult(qualifier tokenType) (Result, error) {
 	case qTilde:
 		return Softfail, nil
 	default:
-		return internalError, fmt.Errorf("invalid qualifier")
+		return internalError, NewSpfError(spferr.KindValidation, fmt.Errorf("invalid qualifier"), nil)
 	}
 }
 
-// SyntaxError represents parsing error, it holds reference to faulty token
+// SpfError represents errors created from parsing or validation, it holds reference to faulty token
 // as well as error describing fault
-type SyntaxError struct {
+type SpfError struct {
+	kind  spferr.Kind
 	token *token
 	err   error
 }
 
-func (e SyntaxError) Error() string {
+func NewSpfError(k spferr.Kind, e error, t *token) error {
+	return SpfError{kind: k, token: t, err: e}
+}
+
+func (e SpfError) Error() string {
 	var (
 		p     strings.Builder
 		cause = error(e)
@@ -54,14 +62,23 @@ func (e SyntaxError) Error() string {
 	if p.Len() > 0 {
 		m.WriteByte(' ')
 		m.WriteByte('[')
-		m.WriteString(p.String())
+		m.WriteString(strings.TrimSuffix(p.String(), " "))
 		m.WriteByte(']')
 	}
 	return m.String()
 }
 
+func wrap(t *token, err error) error {
+	// try to grab the original error kind
+	if st, ok := err.(SpfError); ok {
+		return NewSpfError(st.Kind(), st, t)
+	} else {
+		return NewSpfError(spferr.KindSyntax, err, t)
+	}
+}
+
 func Unwrap(e error) (*token, error, bool) {
-	se, ok := e.(SyntaxError)
+	se, ok := e.(SpfError)
 	if ok {
 		return se.token, se.err, true
 	}
@@ -78,52 +95,58 @@ func Cause(e error) (string, error) {
 	return lastToken.String(), e
 }
 
-func (e SyntaxError) Cause() error {
+func (e SpfError) Cause() error {
 	return e.err
 }
 
-func (e SyntaxError) TokenString() string {
+func (e SpfError) TokenString() string {
 	return e.token.String()
+}
+
+func (e SpfError) Kind() spferr.Kind {
+	return e.kind
 }
 
 // parser represents parsing structure. It keeps all arguments provided by top
 // level CheckHost method as well as tokenized terms from TXT RR. One should
 // call parser.Parse() for a proper SPF evaluation.
 type parser struct {
-	sender        string
-	domain        string
-	heloDomain    string
-	ip            net.IP
-	query         string
-	resolver      Resolver
-	listener      Listener
-	ignoreMatches bool
-	options       []Option
-	visited       *stringsStack
-	evaluatedOn   time.Time
-	receivingFQDN string
-	stopAtError   func(error) bool
-	partialMacros bool
+	sender             string
+	domain             string
+	heloDomain         string
+	ip                 net.IP
+	query              string
+	resolver           Resolver
+	listener           Listener
+	ignoreMatches      bool
+	options            []Option
+	visited            *stringsStack
+	evaluatedOn        time.Time
+	receivingFQDN      string
+	stopAtError        func(error) bool
+	partialMacros      bool
+	fireFirstMatchOnce *sync.Once
 }
 
 // newParser creates new Parser objects and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
 func newParser(opts ...Option) *parser {
-	return newParserWithVisited(newStringsStack(), opts...)
+	return newParserWithVisited(newStringsStack(), new(sync.Once), opts...)
 }
 
 // newParserWithVisited creates new Parser objects with prepopulated map of visited domains and returns its reference.
 // It accepts CheckHost() parameters as well as SPF query (fetched from TXT RR
 // during initial DNS lookup.
-func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
+func newParserWithVisited(visited *stringsStack, fireFirstMatchOnce *sync.Once, opts ...Option) *parser {
 	p := &parser{
 		// mechanisms: make([]*token, 0, 10),
-		resolver:      NewLimitedResolver(&DNSResolver{}, 10, 10),
-		options:       opts,
-		visited:       visited,
-		receivingFQDN: "unknown",
-		evaluatedOn:   time.Now().UTC(),
+		resolver:           NewLimitedResolver(&DNSResolver{}, 10, 10, 2),
+		options:            opts,
+		visited:            visited,
+		receivingFQDN:      "unknown",
+		evaluatedOn:        time.Now().UTC(),
+		fireFirstMatchOnce: fireFirstMatchOnce,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -138,10 +161,10 @@ func newParserWithVisited(visited *stringsStack, opts ...Option) *parser {
 // and error as the reason for the encountered problem.
 func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl string, spf string, err error) {
 	var u unused
-	var ttl time.Duration
+	var extras *ResponseExtras
 	p.fireCheckHost(ip, domain, sender)
 	defer func() {
-		p.fireCheckHostResult(r, expl, ttl, err)
+		p.fireCheckHostResult(r, expl, extras, err)
 		for _, t := range u.mechanisms {
 			p.fireUnusedDirective(t)
 		}
@@ -159,20 +182,24 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	}
 
 	if p.visited.has(NormalizeFQDN(domain)) {
-		return Permerror, "", "", ErrLoopDetected
+		return Permerror, "", "", NewSpfError(spferr.KindValidation, ErrLoopDetected, nil)
 	}
 
 	var txts []string
-	txts, ttl, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
+	txts, extras, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
+	if extras.Void() {
+		p.fireVoidLookup(nil, domain)
+	}
+
 	switch err {
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return Permerror, "", "", err
+		return Permerror, "", "", NewSpfError(spferr.KindDNS, err, nil)
 	case ErrDNSPermerror:
-		return None, "", "", err
+		return None, "", "", NewSpfError(spferr.KindDNS, err, nil)
 	default:
-		return Temperror, "", "", err
+		return Temperror, "", "", NewSpfError(spferr.KindDNS, err, nil)
 	}
 
 	// If the resultant record set includes no records, check_host()
@@ -180,13 +207,13 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	// more than one record, check_host() produces the "permerror" result.
 	spf, err = filterSPF(txts)
 	if err != nil {
-		return Permerror, "", "", err
+		return Permerror, "", "", NewSpfError(spferr.KindValidation, err, nil)
 	}
 	if spf == "" {
-		return None, "", "", ErrSPFNotFound
+		return None, "", "", NewSpfError(spferr.KindValidation, ErrSPFNotFound, nil)
 	}
 
-	r, expl, u, err = newParserWithVisited(p.visited, p.options...).with(spf, sender, domain, ip).check()
+	r, expl, u, err = newParserWithVisited(p.visited, p.fireFirstMatchOnce, p.options...).with(spf, sender, domain, ip).check()
 	return
 }
 
@@ -220,7 +247,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		matches bool
 		token   *token
 		i       int
-		ttl     time.Duration
+		extras  *ResponseExtras
 	)
 
 	mechanisms, redirect, explanation, err := sortTokens(tokens)
@@ -237,19 +264,19 @@ func (p *parser) check() (Result, string, unused, error) {
 			all = true
 			matches, result, err = p.parseAll(token)
 		case tA:
-			matches, result, ttl, err = p.parseA(token)
+			matches, result, extras, err = p.parseA(token)
 		case tIP4:
 			matches, result, err = p.parseIP4(token)
 		case tIP6:
 			matches, result, err = p.parseIP6(token)
 		case tMX:
-			matches, result, ttl, err = p.parseMX(token)
+			matches, result, extras, err = p.parseMX(token)
 		case tInclude:
 			matches, result, err = p.parseInclude(token)
 		case tExists:
-			matches, result, ttl, err = p.parseExists(token)
+			matches, result, extras, err = p.parseExists(token)
 		case tPTR:
-			matches, result, err = p.parsePtr(token)
+			matches, result, extras, err = p.parsePtr(token)
 		default:
 			p.fireDirective(token, "")
 		}
@@ -259,9 +286,15 @@ func (p *parser) check() (Result, string, unused, error) {
 			if result == Fail && explanation != nil {
 				s, err = p.handleExplanation(explanation)
 			}
-			p.fireMatch(token, result, s, ttl, err)
+			p.fireMatch(token, result, s, extras, err)
 			return result, s, unused{mechanisms[i+1:], redirect}, err
 		}
+
+		// Store the first match result if not already set
+		if p.ignoreMatches && matches {
+			p.fireFirstMatch(result, err)
+		}
+
 		p.fireNonMatch(token, result, err)
 
 		// in walker-mode we want to count number of errors and check the counter against some threshold
@@ -280,6 +313,7 @@ func (p *parser) check() (Result, string, unused, error) {
 	if p.ignoreMatches {
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
+
 	return result, "", unused{}, err
 }
 
@@ -290,11 +324,11 @@ func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
 	p.listener.CheckHost(ip, domain, sender)
 }
 
-func (p *parser) fireCheckHostResult(r Result, explanation string, ttl time.Duration, e error) {
+func (p *parser) fireCheckHostResult(r Result, explanation string, extras *ResponseExtras, e error) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.CheckHostResult(r, explanation, ttl, e)
+	p.listener.CheckHostResult(r, explanation, extras, e)
 }
 
 func (p *parser) fireSPFRecord(s string) {
@@ -332,18 +366,41 @@ func (p *parser) fireNonMatch(t *token, r Result, e error) {
 	p.listener.NonMatch(t.qualifier.String(), t.mechanism.String(), t.value, r, e)
 }
 
-func (p *parser) fireMatch(t *token, r Result, explanation string, ttl time.Duration, e error) {
+func (p *parser) fireMatch(t *token, r Result, explanation string, extras *ResponseExtras, e error) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, ttl, e)
+	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, extras, e)
+}
+
+func (p *parser) fireVoidLookup(t *token, fqdn string) {
+	if p.listener == nil {
+		return
+	}
+
+	if t == nil {
+		p.listener.VoidLookup("", "", "", fqdn)
+		return
+	}
+
+	p.listener.VoidLookup(t.qualifier.String(), t.mechanism.String(), t.value, fqdn)
+}
+
+func (p *parser) fireFirstMatch(r Result, e error) {
+	if p.listener == nil || p.fireFirstMatchOnce == nil {
+		return
+	}
+
+	p.fireFirstMatchOnce.Do(func() {
+		p.listener.FirstMatch(r, e)
+	})
 }
 
 func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
 	mechanisms = make([]*token, 0, len(tokens))
 	for _, token := range tokens {
 		if token.isErr() {
-			err = SyntaxError{token, ErrSyntaxError}
+			err = NewSpfError(spferr.KindSyntax, ErrSyntaxError, token)
 			return
 		}
 		if token.mechanism.isMechanism() {
@@ -388,17 +445,14 @@ func (p *parser) parseVersion(t *token) (bool, Result, error) {
 	if t.value == "spf1" {
 		return false, None, nil
 	}
-	return true, Permerror, SyntaxError{
-		t,
-		fmt.Errorf("invalid spf qualifier: %v", t.value),
-	}
+	return true, Permerror, NewSpfError(spferr.KindSyntax, fmt.Errorf("invalid spf qualifier: %v", t.value), t)
 }
 
 func (p *parser) parseAll(t *token) (bool, Result, error) {
 	p.fireDirective(t, "")
 	result, err := matchingResult(t.qualifier)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, NewSpfError(spferr.KindSyntax, err, t)
 	}
 	return true, result, nil
 }
@@ -410,14 +464,14 @@ func (p *parser) parseIP4(t *token) (bool, Result, error) {
 
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To4() == nil {
-			return true, Permerror, SyntaxError{t, ErrNotIPv4}
+			return true, Permerror, NewSpfError(spferr.KindSyntax, ErrNotIPv4, t)
 		}
 		return ipnet.Contains(p.ip), result, nil
 	}
 
 	ip := net.ParseIP(t.value).To4()
 	if ip == nil {
-		return true, Permerror, SyntaxError{t, ErrNotIPv4}
+		return true, Permerror, NewSpfError(spferr.KindSyntax, ErrNotIPv4, t)
 	}
 	return ip.Equal(p.ip), result, nil
 }
@@ -429,22 +483,22 @@ func (p *parser) parseIP6(t *token) (bool, Result, error) {
 
 	if ip, ipnet, err := net.ParseCIDR(t.value); err == nil {
 		if ip.To16() == nil {
-			return true, Permerror, SyntaxError{t, ErrNotIPv6}
+			return true, Permerror, NewSpfError(spferr.KindSyntax, ErrNotIPv6, t)
 		}
 		return ipnet.Contains(p.ip), result, nil
 	}
 
 	ip := net.ParseIP(t.value)
 	if ip.To4() != nil || ip.To16() == nil {
-		return true, Permerror, SyntaxError{t, ErrNotIPv6}
+		return true, Permerror, NewSpfError(spferr.KindSyntax, ErrNotIPv6, t)
 	}
 	return ip.Equal(p.ip), result, nil
 }
 
-func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
+func (p *parser) parseA(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false)
+		fqdn, _, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -455,12 +509,12 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, NewSpfError(spferr.KindSyntax, err, t)
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, ttl, err := p.resolver.MatchIP(fqdn, func(ip net.IP, host string) (bool, error) {
+	found, extras, err := p.resolver.MatchIP(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -473,13 +527,19 @@ func (p *parser) parseA(t *token) (bool, Result, time.Duration, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	return found, result, ttl, err
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
+	}
+	if err != nil {
+		return found, result, nil, NewSpfError(spferr.KindDNS, err, nil)
+	}
+	return found, result, extras, err
 }
 
-func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
+func (p *parser) parseMX(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn, ip4Mask, ip6Mask, err := splitDomainDualCIDR(domainSpec(t.value, p.domain))
 	if err == nil {
-		fqdn, err = parseMacro(p, fqdn, false)
+		fqdn, _, err = parseMacro(p, fqdn, false)
 	}
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
@@ -490,11 +550,11 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, NewSpfError(spferr.KindSyntax, err, t)
 	}
 
 	result, _ := matchingResult(t.qualifier)
-	found, ttl, err := p.resolver.MatchMX(fqdn, func(ip net.IP, host string) (bool, error) {
+	found, extras, err := p.resolver.MatchMX(fqdn, func(ip net.IP, host string) (bool, error) {
 		n := net.IPNet{
 			IP: ip,
 		}
@@ -507,28 +567,36 @@ func (p *parser) parseMX(t *token) (bool, Result, time.Duration, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
 	}
-	return found, result, ttl, err
+	if err != nil {
+		return true, Permerror, nil, NewSpfError(spferr.KindDNS, err, t)
+	}
+	return found, result, extras, err
 }
 
 func (p *parser) parseInclude(t *token) (bool, Result, error) {
-	domain, err := parseMacro(p, t.value, false)
+	domain, missingMacros, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
 	if err == nil && !isDomainName(domain) {
 		err = newInvalidDomainError(domain)
 	}
+	if len(missingMacros) > 0 {
+		err = newMissingMacrosError(domain, missingMacros)
+	}
+
 	domain = NormalizeFQDN(domain)
 	p.fireDirective(t, domain)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, NewSpfError(spferr.KindSyntax, err, t)
 	}
 	if domain == "" {
-		return true, Permerror, SyntaxError{t, ErrEmptyDomain}
+		return true, Permerror, NewSpfError(spferr.KindSyntax, ErrEmptyDomain, t)
 	}
+
 	theirResult, _, _, err := p.checkHost(p.ip, domain, p.sender)
 	/* Adhere to following result table:
 	* +---------------------------------+---------------------------------+
@@ -549,8 +617,10 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/if err != nil {
-		err = SyntaxError{t, err}
+	*/
+
+	if err != nil {
+		err = wrap(t, err)
 	}
 
 	switch theirResult {
@@ -570,40 +640,48 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	}
 }
 
-func (p *parser) parseExists(t *token) (bool, Result, time.Duration, error) {
-	resolvedDomain, err := parseMacroToken(p, t)
+func (p *parser) parseExists(t *token) (bool, Result, *ResponseExtras, error) {
+	resolvedDomain, missingMacros, err := parseMacroToken(p, t)
 	if err == nil {
 		resolvedDomain, err = truncateFQDN(resolvedDomain)
 	}
 	if err == nil && !isDomainName(resolvedDomain) {
 		err = newInvalidDomainError(resolvedDomain)
 	}
+	if len(missingMacros) > 0 {
+		err = newMissingMacrosError(resolvedDomain, missingMacros)
+	}
+
 	resolvedDomain = NormalizeFQDN(resolvedDomain)
 	p.fireDirective(t, resolvedDomain)
 	if err != nil {
-		return true, Permerror, 0, SyntaxError{t, err}
+		return true, Permerror, nil, NewSpfError(spferr.KindSyntax, err, t)
 	}
 	if resolvedDomain == "" {
-		return true, Permerror, 0, SyntaxError{t, ErrEmptyDomain}
+		return true, Permerror, nil, NewSpfError(spferr.KindSyntax, ErrEmptyDomain, t)
 	}
 
 	result, _ := matchingResult(t.qualifier)
 
-	found, ttl, err := p.resolver.Exists(resolvedDomain)
+	found, extras, err := p.resolver.Exists(resolvedDomain)
+	if extras.Void() {
+		p.fireVoidLookup(t, resolvedDomain)
+	}
+
 	switch err {
 	case nil:
-		return found, result, ttl, nil
+		return found, result, extras, nil
 	case ErrDNSPermerror:
-		return false, result, 0, nil
+		return false, result, nil, nil
 	default:
-		return false, Temperror, 0, err // was true 8-|
+		return false, Temperror, nil, NewSpfError(spferr.KindDNS, err, nil) // was true 8-|
 	}
 }
 
 // https://www.rfc-editor.org/rfc/rfc7208#section-5.5
-func (p *parser) parsePtr(t *token) (bool, Result, error) {
+func (p *parser) parsePtr(t *token) (bool, Result, *ResponseExtras, error) {
 	fqdn := domainSpec(t.value, p.domain)
-	fqdn, err := parseMacro(p, fqdn, false)
+	fqdn, _, err := parseMacro(p, fqdn, false)
 	if err == nil {
 		fqdn, err = truncateFQDN(fqdn)
 	}
@@ -613,19 +691,23 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 	fqdn = NormalizeFQDN(fqdn)
 	p.fireDirective(t, fqdn)
 	if err != nil {
-		return true, Permerror, SyntaxError{t, err}
+		return true, Permerror, nil, NewSpfError(spferr.KindSyntax, err, t)
 	}
 
-	ptrs, _, err := p.resolver.LookupPTR(p.ip.String())
+	ptrs, extras, err := p.resolver.LookupPTR(p.ip.String())
+	if extras.Void() {
+		p.fireVoidLookup(t, fqdn)
+	}
+
 	switch err {
 	case nil:
 		// continue
 	case ErrDNSLimitExceeded:
-		return false, Permerror, err
+		return false, Permerror, extras, NewSpfError(spferr.KindDNS, err, nil)
 	case ErrDNSPermerror:
-		return false, None, err
+		return false, None, extras, NewSpfError(spferr.KindDNS, err, nil)
 	default:
-		return false, Temperror, err
+		return false, Temperror, extras, NewSpfError(spferr.KindDNS, err, nil)
 	}
 
 	result, _ := matchingResult(t.qualifier)
@@ -645,11 +727,11 @@ func (p *parser) parsePtr(t *token) (bool, Result, error) {
 		}
 
 		if found {
-			return true, result, nil
+			return true, result, nil, nil
 		}
 	}
 
-	return false, Fail, nil
+	return false, Fail, nil, nil
 }
 
 func (p *parser) handleRedirect(t *token) (Result, error) {
@@ -662,7 +744,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 		result Result
 	)
 
-	domain, err := parseMacro(p, t.value, false)
+	domain, _, err := parseMacro(p, t.value, false)
 	if err == nil {
 		domain, err = truncateFQDN(domain)
 	}
@@ -673,7 +755,7 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 
 	p.fireDirective(t, redirectDomain)
 	if err != nil {
-		return Permerror, SyntaxError{t, err}
+		return Permerror, NewSpfError(spferr.KindSyntax, err, t)
 	}
 
 	if result, _, _, err = p.checkHost(p.ip, redirectDomain, p.sender); err != nil {
@@ -691,24 +773,24 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 }
 
 func (p *parser) handleExplanation(t *token) (string, error) {
-	domain, err := parseMacroToken(p, t)
+	domain, _, err := parseMacroToken(p, t)
 	if err != nil {
-		return "", SyntaxError{t, err}
+		return "", NewSpfError(spferr.KindSyntax, err, t)
 	}
 	if domain == "" {
-		return "", SyntaxError{t, ErrEmptyDomain}
+		return "", NewSpfError(spferr.KindSyntax, ErrEmptyDomain, t)
 	}
 	domain, err = truncateFQDN(domain)
 	if err != nil {
-		return "", SyntaxError{t, err}
+		return "", NewSpfError(spferr.KindSyntax, err, t)
 	}
 	if !isDomainName(domain) {
-		return "", SyntaxError{t, newInvalidDomainError(domain)}
+		return "", NewSpfError(spferr.KindSyntax, newInvalidDomainError(domain), t)
 	}
 
 	txts, _, err := p.resolver.LookupTXT(NormalizeFQDN(domain))
 	if err != nil {
-		return "", err
+		return "", NewSpfError(spferr.KindDNS, err, t)
 	}
 
 	// RFC 7208, section 6.2 specifies that result strings should be
@@ -717,9 +799,9 @@ func (p *parser) handleExplanation(t *token) (string, error) {
 	//  not in the "unreserved" set, which is defined in [RFC3986].
 	//  https://tools.ietf.org/html/rfc7208#section-7.3
 	//  looks like we need to do it after truncating
-	exp, err := parseMacro(p, strings.Join(txts, ""), true)
+	exp, _, err := parseMacro(p, strings.Join(txts, ""), true)
 	if err != nil {
-		return "", SyntaxError{t, err}
+		return "", NewSpfError(spferr.KindSyntax, err, t)
 	}
 	return exp, nil
 }

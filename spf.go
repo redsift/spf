@@ -2,6 +2,7 @@ package spf
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -10,21 +11,22 @@ import (
 
 // Errors could be used for root couse analysis
 var (
-	ErrDNSTemperror      = errors.New("temporary DNS error")
-	ErrDNSPermerror      = errors.New("permanent DNS error")
-	ErrDNSLimitExceeded  = errors.New("limit exceeded")
-	ErrSPFNotFound       = errors.New("SPF record not found")
-	ErrInvalidCIDRLength = errors.New("invalid CIDR length")
-	ErrTooManySPFRecords = errors.New("too many SPF records")
-	ErrTooManyRedirects  = errors.New(`too many "redirect"`)
-	ErrTooManyExps       = errors.New(`too many "exp"`)
-	ErrSyntaxError       = errors.New(`wrong syntax`)
-	ErrEmptyDomain       = errors.New("empty domain")
-	ErrNotIPv4           = errors.New("address isn't ipv4")
-	ErrNotIPv6           = errors.New("address isn't ipv6")
-	ErrLoopDetected      = errors.New("infinite recursion detected")
-	ErrUnreliableResult  = errors.New("result is unreliable with IgnoreMatches option enabled")
-	ErrTooManyErrors     = errors.New("too many errors")
+	ErrDNSTemperror               = errors.New("temporary DNS error")
+	ErrDNSPermerror               = errors.New("permanent DNS error")
+	ErrDNSLimitExceeded           = errors.New("limit exceeded")
+	ErrDNSVoidLookupLimitExceeded = errors.New("void lookup limit exceeded")
+	ErrSPFNotFound                = errors.New("SPF record not found")
+	ErrInvalidCIDRLength          = errors.New("invalid CIDR length")
+	ErrTooManySPFRecords          = errors.New("too many SPF records")
+	ErrTooManyRedirects           = errors.New(`too many "redirect"`)
+	ErrTooManyExps                = errors.New(`too many "exp"`)
+	ErrSyntaxError                = errors.New(`wrong syntax`)
+	ErrEmptyDomain                = errors.New("empty domain")
+	ErrNotIPv4                    = errors.New("address isn't ipv4")
+	ErrNotIPv6                    = errors.New("address isn't ipv6")
+	ErrLoopDetected               = errors.New("infinite recursion detected")
+	ErrUnreliableResult           = errors.New("result is unreliable with IgnoreMatches option enabled")
+	ErrTooManyErrors              = errors.New("too many errors")
 )
 
 // DomainError represents a domain check error
@@ -50,6 +52,13 @@ func newInvalidDomainError(domain string) error {
 	}
 }
 
+func newMissingMacrosError(domain string, macros []string) error {
+	return &DomainError{
+		Err:    fmt.Sprintf("macros values missing: %s. ", strings.Join(macros, ", ")),
+		Domain: domain,
+	}
+}
+
 // IPMatcherFunc returns true if ip matches to implemented rules.
 // If IPMatcherFunc returns any non nil error, the Resolver must stop
 // any further processing and use the error as resulting error.
@@ -57,32 +66,66 @@ func newInvalidDomainError(domain string) error {
 // could be totally ignored by implementation.
 type IPMatcherFunc func(ip net.IP, name string) (bool, error)
 
-// Resolver provides abstraction for DNS layer
+// ResponseExtras contains additional information returned alongside DNS query results.
+type ResponseExtras struct {
+	ttl  time.Duration // Minimum TTL of the DNS response
+	void bool          // Indicates if the response is a result of a DNS void lookup.
+
+	// A DNS void lookup, as defined in Section 4.6.4 of RFC 7208 (https://datatracker.ietf.org/doc/html/rfc7208#section-4.6.4),
+	// is a query for a domain that is intentionally configured to have no associated DNS records,
+	// such as an explicit configuration for a "blackhole" or an intentionally nonexistent domain.
+	// This type of query typically returns a response with no relevant DNS records (e.g., NXDOMAIN),
+	// and the 'Void' field in this struct is set to 'true' to indicate that the response resulted from such a lookup.
+}
+
+func NewResponseExtras(ttl time.Duration, void bool) *ResponseExtras {
+	return &ResponseExtras{ttl, void}
+}
+
+func (x *ResponseExtras) TTL() time.Duration {
+	if x == nil {
+		return 0
+	}
+	return x.ttl
+}
+
+func (x *ResponseExtras) Void() bool {
+	return x != nil && x.void
+}
+
+// Resolver provides an abstraction for DNS layer operations.
 type Resolver interface {
-	// LookupTXT returns the DNS TXT records for the given domain name and
-	// the minimum TTL.
-	LookupTXT(string) ([]string, time.Duration, error)
-	// LookupTXTStrict returns DNS TXT records for the given name and the
-	// minimum TTL, however it will return ErrDNSPermerror upon returned
-	// NXDOMAIN (RCODE 3)
-	LookupTXTStrict(string) ([]string, time.Duration, error)
-	// Exists is used for a DNS A RR lookup (even when the
-	// connection type is IPv6).  If any A record is returned, this
-	// mechanism matches and returns the TTL with it.
-	Exists(string) (bool, time.Duration, error)
+	// LookupTXT returns the DNS TXT records for the given domain name,
+	// along with additional response information in ResponseExtras.
+	LookupTXT(string) ([]string, *ResponseExtras, error)
+
+	// LookupTXTStrict returns DNS TXT records for the given domain name,
+	// and returns ErrDNSPermerror upon returned NXDOMAIN (RCODE 3),
+	// along with additional response information in ResponseExtras.
+	LookupTXTStrict(string) ([]string, *ResponseExtras, error)
+
+	// Exists is used for a DNS A RR lookup (even when the connection type is IPv6).
+	// If any A record is returned, this mechanism matches and a bool,
+	// along with additional response information in ResponseExtras.
+	Exists(string) (bool, *ResponseExtras, error)
+
 	// MatchIP provides an address lookup, which should be done on the name
-	// using the type of lookup (A or AAAA).
-	// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-	// If any address matches, the mechanism matches and returns the TTL.
-	MatchIP(string, IPMatcherFunc) (bool, time.Duration, error)
-	// MatchMX is similar to MatchIP but first performs an MX lookup on the
-	// name.  Then it performs an address lookup on each MX name returned.
-	// Then IPMatcherFunc used to compare checked IP to the returned address(es).
-	// If any address matches, the mechanism matches and returns the TTL.
-	MatchMX(string, IPMatcherFunc) (bool, time.Duration, error)
-	// LookupPTR returns the DNS PTR records for the given address and
-	// the minimum TTL.
-	LookupPTR(string) ([]string, time.Duration, error)
+	// using the type of lookup (A or AAAA). Then IPMatcherFunc is used to compare
+	// the checked IP to the returned address(es). If any address matches,
+	// the mechanism matches and returns the TTL,
+	// along with additional response information in ResponseExtras.
+	MatchIP(string, IPMatcherFunc) (bool, *ResponseExtras, error)
+
+	// MatchMX is similar to MatchIP but first performs an MX lookup on the name.
+	// Then it performs an address lookup on each MX name returned.
+	// IPMatcherFunc is used to compare the checked IP to the returned address(es).
+	// If any address matches, the mechanism matches and returns a bool,
+	// along with additional response information in ResponseExtras.
+	MatchMX(string, IPMatcherFunc) (bool, *ResponseExtras, error)
+
+	// LookupPTR returns the DNS PTR records for the given address,
+	// along with additional response information in ResponseExtras.
+	LookupPTR(string) ([]string, *ResponseExtras, error)
 }
 
 // Option sets an optional parameter for the evaluating e-mail with regard to SPF

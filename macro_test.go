@@ -2,12 +2,13 @@ package spf
 
 import (
 	"fmt"
-	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
+	. "github.com/redsift/spf/v2/testing"
 )
 
 const (
@@ -64,7 +65,7 @@ func TestMacroIteration(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.domain), func(t *testing.T) {
-			got, err := parseMacroToken(
+			got, _, err := parseMacroToken(
 				newParser(WithResolver(testResolver)).with(stub, test.sender, test.domain, test.addr),
 				&token{mechanism: tExp, qualifier: qMinus, value: test.macro})
 			if err != nil {
@@ -134,7 +135,7 @@ func TestMacroExpansionRFCExamples(t *testing.T) {
 	for _, test := range testCases {
 
 		tkn.value = test.Input
-		result, err := parseMacroToken(parser, tkn)
+		result, _, err := parseMacroToken(parser, tkn)
 		if err != nil {
 			t.Errorf("Macro %s evaluation failed due to returned error: %v\n",
 				test.Input, err)
@@ -164,7 +165,7 @@ func TestMacroExpansion_partial(t *testing.T) {
 	for _, test := range testCases {
 
 		tkn.value = test.Input
-		result, err := parseMacroToken(parser, tkn)
+		result, _, err := parseMacroToken(parser, tkn)
 		if err != nil {
 			t.Errorf("Macro %s evaluation failed due to returned error: %v\n",
 				test.Input, err)
@@ -204,7 +205,7 @@ func TestParsingErrors(t *testing.T) {
 	for _, test := range testcases {
 
 		tkn.value = test.Input
-		result, err := parseMacroToken(parser, tkn)
+		result, _, err := parseMacroToken(parser, tkn)
 
 		if result != "" {
 			t.Errorf("For input '%s' expected empty result, got '%s' instead\n",
@@ -317,7 +318,7 @@ func TestMacro_Domains(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%d_%s", no, test.query), func(t *testing.T) {
-			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4)),
+			got, exp, _, err := newParser(WithResolver(NewLimitedResolver(testResolver, 4, 4, 2)),
 				HeloDomain(test.helo),
 				EvaluatedOn(time.Unix(1, 0)),
 				ReceivingFQDN(test.receivingFQDN)).
@@ -333,5 +334,47 @@ func TestMacro_Domains(t *testing.T) {
 				t.Errorf("%q exp=%q, wantExp=%q", test.query, exp, test.wantExp)
 			}
 		})
+	}
+}
+
+func TestMissingMacros(t *testing.T) {
+	testcases := []struct {
+		sender        string
+		receivingFQDN string
+		helo          string
+		ip            net.IP
+
+		Input         string
+		Output        string
+		MissingMacros []string
+	}{
+		{sender, "example.com", "", ip4, "%{h}", "", []string{"heloDomain {h}"}},
+		{"", "example.com", "example.com", ip4, "%{s}", "", []string{"sender {s}"}},
+		{sender, "example.com", "example.com", net.IP{}, "%{c}", "", []string{"SMTP client IP {c}"}},
+		{"", "example.com", "", net.IP{}, "%{h}.%{s}.%{c}", "", []string{"heloDomain {h}", "sender {s}", "SMTP client IP {c}"}},
+	}
+
+	for _, test := range testcases {
+
+		tkn.value = test.Input
+
+		opts := []Option{WithResolver(testResolver)}
+		if test.helo != "" {
+			opts = append(opts, HeloDomain(test.helo))
+		}
+		if test.receivingFQDN != "" {
+			opts = append(opts, ReceivingFQDN(test.receivingFQDN))
+		}
+		parser := newParser(opts...).with(stub, test.sender, domain, test.ip)
+
+		_, missingMacros, err := parseMacro(parser, tkn.value, true)
+
+		if !cmp.Equal(test.MissingMacros, missingMacros) {
+			t.Errorf("String slices do not match. Diff: %v", cmp.Diff(test.MissingMacros, missingMacros))
+		}
+
+		if err != nil {
+			t.Errorf("For input '%s', expected empty err, got %v instead", test.Input, err)
+		}
 	}
 }

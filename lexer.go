@@ -31,7 +31,7 @@ func lex(input string) []*token {
 	return tokens
 }
 
-// scan scans input and returns a Token structure
+// scan scans input and returns a token structure
 func (l *lexer) scan() *token {
 	for {
 		r, eof := l.next()

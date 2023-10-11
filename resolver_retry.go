@@ -67,13 +67,13 @@ func NewRetryResolver(rr []Resolver, opts ...RetryResolverOption) Resolver {
 
 // LookupTXTStrict returns DNS TXT records for the given name, however it
 // will return ErrDNSPermerror upon NXDOMAIN (RCODE 3)
-func (r *retryResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
+func (r *retryResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, ttl, err := next.LookupTXTStrict(name)
+			v, extras, err := next.LookupTXTStrict(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, ttl, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -81,13 +81,13 @@ func (r *retryResolver) LookupTXTStrict(name string) ([]string, time.Duration, e
 }
 
 // LookupTXT returns the DNS TXT records for the given domain name.
-func (r *retryResolver) LookupTXT(name string) ([]string, time.Duration, error) {
+func (r *retryResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, ttl, err := next.LookupTXT(name)
+			v, extras, err := next.LookupTXT(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, ttl, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -95,13 +95,13 @@ func (r *retryResolver) LookupTXT(name string) ([]string, time.Duration, error) 
 }
 
 // LookupPTR returns the DNS PTR records for the given address.
-func (r *retryResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+func (r *retryResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, ttl, err := next.LookupPTR(name)
+			v, extras, err := next.LookupPTR(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, ttl, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -111,13 +111,13 @@ func (r *retryResolver) LookupPTR(name string) ([]string, time.Duration, error) 
 // Exists is used for a DNS A RR lookup (even when the
 // connection type is IPv6).  If any A record is returned, this
 // mechanism matches and returns the ttl.
-func (r *retryResolver) Exists(name string) (bool, time.Duration, error) {
+func (r *retryResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
-			v, ttl, err := next.Exists(name)
+			v, extras, err := next.Exists(name)
 			if err != ErrDNSTemperror || expired() {
-				return v, ttl, err
+				return v, extras, err
 			}
 		}
 		time.Sleep(r.backoff(attempt))
@@ -128,7 +128,7 @@ func (r *retryResolver) Exists(name string) (bool, time.Duration, error) {
 // using the type of lookup (A or AAAA).
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {
@@ -145,7 +145,7 @@ func (r *retryResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.
 // name.  Then it performs an address lookup on each MX name returned.
 // Then IPMatcherFunc used to compare checked IP to the returned address(es).
 // If any address matches, the mechanism matches
-func (r *retryResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *retryResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	expired := r.expiredFunc()
 	for attempt := 0; ; attempt++ {
 		for _, next := range r.rr {

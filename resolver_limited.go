@@ -3,15 +3,15 @@ package spf
 import (
 	"net"
 	"sync/atomic"
-	"time"
 )
 
 // LimitedResolver wraps a Resolver and limits number of lookups possible to do
 // with it. All overlimited calls return ErrDNSLimitExceeded.
 type LimitedResolver struct {
-	lookupLimit    int32
-	mxQueriesLimit uint16
-	resolver       Resolver
+	lookupLimit     int32
+	mxQueriesLimit  uint16
+	voidLookupLimit int32
+	resolver        Resolver
 }
 
 // NewLimitedResolver returns a resolver which will pass up to lookupLimit calls to r.
@@ -19,11 +19,12 @@ type LimitedResolver struct {
 // to mxQueryLimit.
 // All calls over the limit will return ErrDNSLimitExceeded.
 // Make sure lookupLimit includes the initial SPF lookup
-func NewLimitedResolver(r Resolver, lookupLimit, mxQueriesLimit uint16) Resolver {
+func NewLimitedResolver(r Resolver, lookupLimit, mxQueriesLimit, voidLookupLimit uint16) Resolver {
 	return &LimitedResolver{
-		lookupLimit:    int32(lookupLimit), // sure that l is positive or zero
-		mxQueriesLimit: mxQueriesLimit,
-		resolver:       r,
+		lookupLimit:     int32(lookupLimit), // sure that l is positive or zero
+		mxQueriesLimit:  mxQueriesLimit,
+		voidLookupLimit: int32(voidLookupLimit),
+		resolver:        r,
 	}
 }
 
@@ -31,9 +32,13 @@ func (r *LimitedResolver) canLookup() bool {
 	return atomic.AddInt32(&r.lookupLimit, -1) > 0
 }
 
+func (r *LimitedResolver) canPerformVoidLookup() bool {
+	return atomic.AddInt32(&r.voidLookupLimit, -1) > -1
+}
+
 // LookupTXT returns the DNS TXT records for the given domain name
 // and the minimum TTL. Used for "exp" modifier and do not cause DNS query.
-func (r *LimitedResolver) LookupTXT(name string) ([]string, time.Duration, error) {
+func (r *LimitedResolver) LookupTXT(name string) ([]string, *ResponseExtras, error) {
 	return r.resolver.LookupTXT(name)
 }
 
@@ -42,11 +47,17 @@ func (r *LimitedResolver) LookupTXT(name string) ([]string, time.Duration, error
 // number of lookups made by underlying resolver exceed the limit.
 // It will also return ErrDNSPermerror upon DNS call return error NXDOMAIN
 // (RCODE 3)
-func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, time.Duration, error) {
+func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, *ResponseExtras, error) {
 	if !r.canLookup() {
-		return nil, 0, ErrDNSLimitExceeded
+		return nil, nil, ErrDNSLimitExceeded
 	}
-	return r.resolver.LookupTXTStrict(name)
+
+	txts, extras, err := r.resolver.LookupTXTStrict(name)
+	if extras.Void() && !r.canPerformVoidLookup() {
+		return nil, nil, ErrDNSVoidLookupLimitExceeded
+	}
+
+	return txts, extras, err
 }
 
 // Exists is used for a DNS A RR lookup (even when the
@@ -54,11 +65,17 @@ func (r *LimitedResolver) LookupTXTStrict(name string) ([]string, time.Duration,
 // mechanism matches and returns the ttl.
 // Returns false and ErrDNSLimitExceeded if total number of lookups made
 // by underlying resolver exceed the limit.
-func (r *LimitedResolver) Exists(name string) (bool, time.Duration, error) {
+func (r *LimitedResolver) Exists(name string) (bool, *ResponseExtras, error) {
 	if !r.canLookup() {
-		return false, 0, ErrDNSLimitExceeded
+		return false, nil, ErrDNSLimitExceeded
 	}
-	return r.resolver.Exists(name)
+
+	found, extras, err := r.resolver.Exists(name)
+	if extras.Void() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
+	}
+
+	return found, extras, err
 }
 
 // MatchIP provides an address lookup, which should be done on the name
@@ -67,11 +84,17 @@ func (r *LimitedResolver) Exists(name string) (bool, time.Duration, error) {
 // If any address matches, the mechanism matches
 // Returns false and ErrDNSLimitExceeded if total number of lookups made
 // by underlying resolver exceed the limit. Also return the minimum TTL in true.
-func (r *LimitedResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *LimitedResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	if !r.canLookup() {
-		return false, 0, ErrDNSLimitExceeded
+		return false, nil, ErrDNSLimitExceeded
 	}
-	return r.resolver.MatchIP(name, matcher)
+
+	found, extras, err := r.resolver.MatchIP(name, matcher)
+	if extras.Void() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
+	}
+
+	return found, extras, err
 }
 
 // MatchMX is similar to MatchIP but first performs an MX lookup on the
@@ -86,25 +109,35 @@ func (r *LimitedResolver) MatchIP(name string, matcher IPMatcherFunc) (bool, tim
 //
 // Returns false and ErrDNSLimitExceeded if total number of lookups made
 // by underlying resolver exceed the limit. Returns the minimum TTL in true.
-func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, time.Duration, error) {
+func (r *LimitedResolver) MatchMX(name string, matcher IPMatcherFunc) (bool, *ResponseExtras, error) {
 	if !r.canLookup() {
-		return false, 0, ErrDNSLimitExceeded
+		return false, nil, ErrDNSLimitExceeded
 	}
 
 	limit := int32(r.mxQueriesLimit)
-	return r.resolver.MatchMX(name, func(ip net.IP, name string) (bool, error) {
+	found, extras, err := r.resolver.MatchMX(name, func(ip net.IP, name string) (bool, error) {
 		if atomic.AddInt32(&limit, -1) < 1 {
 			return false, ErrDNSLimitExceeded
 		}
 		return matcher(ip, name)
 	})
+	if extras.Void() && !r.canPerformVoidLookup() {
+		return false, nil, ErrDNSVoidLookupLimitExceeded
+	}
+
+	return found, extras, err
 }
 
 // LookupPTR returns the DNS PTR records for the given domain name
 // and the minimum TTL
-func (r *LimitedResolver) LookupPTR(name string) ([]string, time.Duration, error) {
+func (r *LimitedResolver) LookupPTR(name string) ([]string, *ResponseExtras, error) {
 	if !r.canLookup() {
-		return nil, 0, ErrDNSLimitExceeded
+		return nil, nil, ErrDNSLimitExceeded
 	}
-	return r.resolver.LookupPTR(name)
+	ptrs, extras, err := r.resolver.LookupPTR(name)
+	if extras.Void() && !r.canPerformVoidLookup() {
+		return nil, nil, ErrDNSVoidLookupLimitExceeded
+	}
+
+	return ptrs, extras, err
 }
