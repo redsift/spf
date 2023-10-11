@@ -342,7 +342,7 @@ func (p *parser) fireDirective(t *token, effectiveValue string) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
+	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.key, t.value, effectiveValue)
 }
 
 func (p *parser) fireMatchingIP(t *token, fqdn string, ipn net.IPNet, host string, ip net.IP) {
@@ -356,7 +356,7 @@ func (p *parser) fireUnusedDirective(t *token) {
 	if p.listener == nil || t == nil {
 		return
 	}
-	p.listener.Directive(true, t.qualifier.String(), t.mechanism.String(), t.value, "")
+	p.listener.Directive(true, t.qualifier.String(), t.mechanism.String(), t.key, t.value, "")
 }
 
 func (p *parser) fireNonMatch(t *token, r Result, e error) {

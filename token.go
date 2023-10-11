@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// UnknownModifierMech constructed so we break policy if someone tries to create a policy out of mechanism string function instead of using actual key
+const UnknownModifierMech = ":?"
+
 type tokenType int
 
 const (
@@ -83,9 +86,9 @@ func (tok tokenType) String() string {
 	case qTilde:
 		return "~"
 	case tUnknownModifier:
-		return "UNKNOWN_MODIFIER"
+		return UnknownModifierMech
 	default:
-		return strconv.Itoa(int(tok))
+		return ":" + strconv.Itoa(int(tok))
 	}
 }
 
@@ -196,4 +199,8 @@ func (t *token) String() string {
 		k = t.key
 	}
 	return fmt.Sprintf("%s%s%s%s", q, k, d, t.value)
+}
+
+func IsKnownMechanism(s string) bool {
+	return tokenTypeFromString(s) != tErr
 }
