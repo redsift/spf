@@ -111,7 +111,6 @@ loop:
 		case '=', ':', '/':
 			if t.qualifier != qErr {
 				t.mechanism = tokenTypeFromString(l.input[l.start : cursor-size])
-				//t.key = l.input[l.start : cursor-size]
 				p := cursor
 				if ch == '/' { // special case for (mx|a) dual-cidr-length
 					p = cursor - size
