@@ -87,10 +87,11 @@ func TestTokensSoriting(t *testing.T) {
 	// stub := "stub"
 	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 	type TestCase struct {
-		Tokens      []*token
-		ExpTokens   []*token
-		Redirect    *token
-		Explanation *token
+		Tokens          []*token
+		ExpTokens       []*token
+		Redirect        *token
+		Explanation     *token
+		UnknownModifers []*token
 	}
 
 	testcases := []TestCase{
@@ -105,6 +106,7 @@ func TestTokensSoriting(t *testing.T) {
 			},
 			nil,
 			nil,
+			nil,
 		},
 		{
 			[]*token{
@@ -117,6 +119,7 @@ func TestTokensSoriting(t *testing.T) {
 				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
 			},
 			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			nil,
 			nil,
 		},
 		{
@@ -132,6 +135,7 @@ func TestTokensSoriting(t *testing.T) {
 			},
 			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			&token{mechanism: tExp, qualifier: qPlus, value: "Something went wrong"},
+			nil,
 		},
 		{
 			[]*token{
@@ -147,6 +151,7 @@ func TestTokensSoriting(t *testing.T) {
 			},
 			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			nil,
+			nil,
 		},
 		{
 			[]*token{
@@ -155,6 +160,7 @@ func TestTokensSoriting(t *testing.T) {
 				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
 				{mechanism: tAll, qualifier: qQuestionMark, value: ""},
 				{mechanism: tExp, qualifier: qPlus, value: "You are wrong"},
+				{mechanism: tUnknownModifier, qualifier: qPlus, value: "_spf.test.com"},
 			},
 			[]*token{
 				versionToken,
@@ -163,11 +169,12 @@ func TestTokensSoriting(t *testing.T) {
 			},
 			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			&token{mechanism: tExp, qualifier: qPlus, value: "You are wrong"},
+			[]*token{{mechanism: tUnknownModifier, qualifier: qPlus, value: "_spf.test.com"}},
 		},
 	}
 
 	for _, testcase := range testcases {
-		mechanisms, redirect, explanation, _ := sortTokens(testcase.Tokens)
+		mechanisms, redirect, explanation, unknownModifiers, _ := sortTokens(testcase.Tokens)
 
 		if !reflect.DeepEqual(mechanisms, testcase.ExpTokens) {
 			t.Error("mechanisms mistmatch, got: ", mechanisms,
@@ -180,6 +187,10 @@ func TestTokensSoriting(t *testing.T) {
 		if !reflect.DeepEqual(explanation, testcase.Explanation) {
 			t.Error("Expected Explanation to be", testcase.Explanation,
 				" got ", explanation, " testcase ", explanation, redirect)
+		}
+		if !reflect.DeepEqual(unknownModifiers, testcase.UnknownModifers) {
+			t.Error("unknownModifiers mistmatch, got: ", unknownModifiers,
+				" expected: ", testcase.UnknownModifers)
 		}
 	}
 }
@@ -220,7 +231,7 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		if _, _, _, err := sortTokens(testcase.Tokens); err == nil {
+		if _, _, _, _, err := sortTokens(testcase.Tokens); err == nil {
 			t.Error("We should have gotten an error, ")
 		}
 	}
