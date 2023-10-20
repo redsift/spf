@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// UnknownModifierMech constructed so we break policy if someone tries to create a policy out of mechanism string function instead of using actual key
+const UnknownModifierMech = ":?"
+
 type tokenType int
 
 const (
@@ -28,8 +31,9 @@ const (
 
 	modifierBeg
 
-	tRedirect // redirect
-	tExp      // explanation
+	tRedirect        // redirect
+	tExp             // explanation
+	tUnknownModifier // unknown modifier
 
 	modifierEnd
 
@@ -81,8 +85,10 @@ func (tok tokenType) String() string {
 		return "?"
 	case qTilde:
 		return "~"
+	case tUnknownModifier:
+		return UnknownModifierMech
 	default:
-		return strconv.Itoa(int(tok))
+		return ":" + strconv.Itoa(int(tok))
 	}
 }
 
@@ -158,7 +164,8 @@ func checkTokenSyntax(tkn *token, delimiter rune) bool {
 type token struct {
 	mechanism tokenType // all, include, a, mx, ptr, ip4, ip6, exists etc.
 	qualifier tokenType // +, -, ~, ?, defaults to +
-	value     string    // value for a mechanism
+	key       string    // key for the mechanism
+	value     string    // value for the mechanism
 }
 
 func (t *token) isErr() bool {
@@ -180,11 +187,20 @@ func (t *token) String() string {
 		return fmt.Sprintf("%s%s", q, t.mechanism.String())
 	}
 	d := ":"
-	if t.mechanism == tVersion {
+	if t.mechanism == tVersion || t.mechanism > modifierBeg && t.mechanism < modifierEnd {
 		d = "="
 	}
 	if t.value[0] == '/' {
 		d = ""
 	}
-	return fmt.Sprintf("%s%s%s%s", q, t.mechanism.String(), d, t.value)
+	k := t.mechanism.String()
+	if t.mechanism == tUnknownModifier {
+		// special case for unknown modifier syntax; we preserve original key
+		k = t.key
+	}
+	return fmt.Sprintf("%s%s%s%s", q, k, d, t.value)
+}
+
+func IsKnownMechanism(s string) bool {
+	return tokenTypeFromString(s) != tErr
 }

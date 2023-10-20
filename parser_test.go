@@ -85,89 +85,96 @@ func TestMatchingResult(t *testing.T) {
 
 func TestTokensSoriting(t *testing.T) {
 	// stub := "stub"
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 	type TestCase struct {
-		Tokens      []*token
-		ExpTokens   []*token
-		Redirect    *token
-		Explanation *token
+		Tokens          []*token
+		ExpTokens       []*token
+		Redirect        *token
+		Explanation     *token
+		UnknownModifers []*token
 	}
 
 	testcases := []TestCase{
 		{
 			[]*token{
 				versionToken,
-				{tAll, qMinus, ""},
+				{mechanism: tAll, qualifier: qMinus, value: ""},
 			},
 			[]*token{
 				versionToken,
-				{tAll, qMinus, ""},
+				{mechanism: tAll, qualifier: qMinus, value: ""},
 			},
+			nil,
+			nil,
+			nil,
+		},
+		{
+			[]*token{
+				versionToken,
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+			},
+			[]*token{
+				versionToken,
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+			},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			nil,
 			nil,
 		},
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tMX, qTilde, "example.org"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tIP4, qualifier: qTilde, value: "192.168.1.2"},
+				{mechanism: tExp, qualifier: qPlus, value: "Something went wrong"},
 			},
 			[]*token{
 				versionToken,
-				{tMX, qTilde, "example.org"},
+				{mechanism: tIP4, qualifier: qTilde, value: "192.168.1.2"},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			&token{mechanism: tExp, qualifier: qPlus, value: "Something went wrong"},
 			nil,
 		},
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tIP4, qTilde, "192.168.1.2"},
-				{tExp, qPlus, "Something went wrong"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+				{mechanism: tAll, qualifier: qQuestionMark, value: ""},
 			},
 			[]*token{
 				versionToken,
-				{tIP4, qTilde, "192.168.1.2"},
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+				{mechanism: tAll, qualifier: qQuestionMark, value: ""},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
-			&token{tExp, qPlus, "Something went wrong"},
-		},
-		{
-			[]*token{
-				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tMX, qTilde, "example.org"},
-				{tAll, qQuestionMark, ""},
-			},
-			[]*token{
-				versionToken,
-				{tMX, qTilde, "example.org"},
-				{tAll, qQuestionMark, ""},
-			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			nil,
 			nil,
 		},
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tMX, qTilde, "example.org"},
-				{tAll, qQuestionMark, ""},
-				{tExp, qPlus, "You are wrong"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+				{mechanism: tAll, qualifier: qQuestionMark, value: ""},
+				{mechanism: tExp, qualifier: qPlus, value: "You are wrong"},
+				{mechanism: tUnknownModifier, qualifier: qPlus, value: "_spf.test.com"},
 			},
 			[]*token{
 				versionToken,
-				{tMX, qTilde, "example.org"},
-				{tAll, qQuestionMark, ""},
+				{mechanism: tMX, qualifier: qTilde, value: "example.org"},
+				{mechanism: tAll, qualifier: qQuestionMark, value: ""},
 			},
-			&token{tRedirect, qPlus, "_spf.example.com"},
-			&token{tExp, qPlus, "You are wrong"},
+			&token{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+			&token{mechanism: tExp, qualifier: qPlus, value: "You are wrong"},
+			[]*token{{mechanism: tUnknownModifier, qualifier: qPlus, value: "_spf.test.com"}},
 		},
 	}
 
 	for _, testcase := range testcases {
-		mechanisms, redirect, explanation, _ := sortTokens(testcase.Tokens)
+		mechanisms, redirect, explanation, unknownModifiers, _ := sortTokens(testcase.Tokens)
 
 		if !reflect.DeepEqual(mechanisms, testcase.ExpTokens) {
 			t.Error("mechanisms mistmatch, got: ", mechanisms,
@@ -181,11 +188,15 @@ func TestTokensSoriting(t *testing.T) {
 			t.Error("Expected Explanation to be", testcase.Explanation,
 				" got ", explanation, " testcase ", explanation, redirect)
 		}
+		if !reflect.DeepEqual(unknownModifiers, testcase.UnknownModifers) {
+			t.Error("unknownModifiers mistmatch, got: ", unknownModifiers,
+				" expected: ", testcase.UnknownModifers)
+		}
 	}
 }
 
 func TestTokensSoritingHandleErrors(t *testing.T) {
-	versionToken := &token{tVersion, qPlus, "spf1"}
+	versionToken := &token{mechanism: tVersion, qualifier: qPlus, value: "spf1"}
 	type TestCase struct {
 		Tokens []*token
 	}
@@ -194,33 +205,33 @@ func TestTokensSoritingHandleErrors(t *testing.T) {
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tMX, qMinus, "example.org"},
-				{tRedirect, qPlus, "_spf.example.com"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tMX, qualifier: qMinus, value: "example.org"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
 			},
 		},
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tMX, qMinus, "example.org"},
-				{tExp, qPlus, "Explanation"},
-				{tExp, qPlus, "Explanation"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tMX, qualifier: qMinus, value: "example.org"},
+				{mechanism: tExp, qualifier: qPlus, value: "Explanation"},
+				{mechanism: tExp, qualifier: qPlus, value: "Explanation"},
 			},
 		},
 		{
 			[]*token{
 				versionToken,
-				{tRedirect, qPlus, "_spf.example.com"},
-				{tAll, qMinus, ""},
-				{tExp, qPlus, "_spf.example.com"},
-				{tRedirect, qPlus, "mydomain.com"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tAll, qualifier: qMinus, value: ""},
+				{mechanism: tExp, qualifier: qPlus, value: "_spf.example.com"},
+				{mechanism: tRedirect, qualifier: qPlus, value: "mydomain.com"},
 			},
 		},
 	}
 
 	for _, testcase := range testcases {
-		if _, _, _, err := sortTokens(testcase.Tokens); err == nil {
+		if _, _, _, _, err := sortTokens(testcase.Tokens); err == nil {
 			t.Error("We should have gotten an error, ")
 		}
 	}
@@ -246,13 +257,13 @@ type TokenTestCaseWithTTL struct {
 
 func TestParseAll(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&token{tAll, qPlus, ""}, Pass, true, false},
-		{&token{tAll, qMinus, ""}, Fail, true, false},
-		{&token{tAll, qQuestionMark, ""}, Neutral, true, false},
-		{&token{tAll, qTilde, ""}, Softfail, true, false},
-		{&token{tAll, tErr, ""}, Permerror, true, false},
-		{&token{tAll, qPlus, ""}, Pass, true, true},
-		{&token{tAll, qPlus, ""}, Pass, true, true},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, false},
+		{&token{mechanism: tAll, qualifier: qMinus, value: ""}, Fail, true, false},
+		{&token{mechanism: tAll, qualifier: qQuestionMark, value: ""}, Neutral, true, false},
+		{&token{mechanism: tAll, qualifier: qTilde, value: ""}, Softfail, true, false},
+		{&token{mechanism: tAll, qualifier: tErr, value: ""}, Permerror, true, false},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, true},
+		{&token{mechanism: tAll, qualifier: qPlus, value: ""}, Pass, true, true},
 	}
 
 	var match bool
@@ -324,37 +335,37 @@ func TestParseA(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{172, 18, 0, 2})
 	testcases := []TokenTestCaseWithTTL{
-		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/32"}, Pass, true, 2},
-		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, 0},
-		{&token{tA, qPlus, "range.matching.com/16"}, Pass, true, 2},
-		{&token{tA, qPlus, "range.matching.com/128"}, Permerror, true, 2},
-		{&token{tA, qPlus, "idontexist"}, Pass, false, 0},
-		{&token{tA, qPlus, "#%$%^"}, Permerror, true, 2},
-		{&token{tA, qPlus, "lb.matching.com"}, Pass, true, 2},
-		{&token{tA, qMinus, ""}, Fail, true, 0},
-		{&token{tA, qTilde, ""}, Softfail, true, 0},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/32"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false, 0},
+		{&token{mechanism: tA, qualifier: qPlus, value: "range.matching.com/16"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "range.matching.com/128"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "idontexist"}, Pass, false, 0},
+		{&token{mechanism: tA, qualifier: qPlus, value: "#%$%^"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "lb.matching.com"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qMinus, value: ""}, Fail, true, 0},
+		{&token{mechanism: tA, qualifier: qTilde, value: ""}, Softfail, true, 0},
 
 		// expect (Permerror, true) results as a result of syntax errors
-		{&token{tA, qPlus, "range.matching.com/wrongmask"}, Permerror, true, 2},
-		{&token{tA, qPlus, "range.matching.com/129"}, Permerror, true, 2},
-		{&token{tA, qPlus, "range.matching.com/-1"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "range.matching.com/wrongmask"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "range.matching.com/129"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "range.matching.com/-1"}, Permerror, true, 2},
 
 		// expect (Permerror, true) due to wrong netmasks.
 		// It's a syntax error to specify a netmask over 32 bits for IPv4 addresses
-		{&token{tA, qPlus, "negative.matching.com/128"}, Permerror, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/128"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com/128"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/128"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/128"}, Permerror, true, 2},
 
 		// test dual-cidr syntax
-		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/32/"}, Pass, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/0/0"}, Pass, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/24/24"}, Pass, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/33/100"}, Permerror, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/24/129"}, Permerror, true, 2},
-		{&token{tA, qPlus, "positive.matching.com/128/32"}, Permerror, true, 2},
-		{&token{tA, qPlus, "//32"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//128"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/32/"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/0/0"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/24/24"}, Pass, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/33/100"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/24/129"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/128/32"}, Permerror, true, 2},
+		{&token{mechanism: tA, qualifier: qPlus, value: "//32"}, Pass, true, 2},
 	}
 
 	var match bool
@@ -400,19 +411,19 @@ func TestParseAIpv6(t *testing.T) {
 	defer dns.HandleRemove("negative.matching.com.")
 
 	testcases := []TokenTestCase{
-		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, false},
-		{&token{tA, qPlus, "positive.matching.com//128"}, Pass, true, false},
-		{&token{tA, qPlus, "positive.matching.com//64"}, Pass, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//128"}, Pass, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com//64"}, Pass, true, false},
 
-		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, false},
-		{&token{tA, qPlus, "negative.matching.com//64"}, Pass, false, false},
-		{&token{tA, qPlus, "positive.matching.com// "}, Permerror, true, false},
-		{&token{tA, qPlus, "positive.matching.com/ "}, Permerror, true, false},
-		{&token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com//64"}, Pass, false, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com// "}, Permerror, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ "}, Permerror, true, false},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ / "}, Permerror, true, false},
 
-		{&token{tA, qPlus, "positive.matching.com"}, Pass, true, true},
-		{&token{tA, qPlus, "negative.matching.com"}, Pass, false, true},
-		{&token{tA, qPlus, "positive.matching.com/ / "}, Permerror, true, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com"}, Pass, true, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "negative.matching.com"}, Pass, false, true},
+		{&token{mechanism: tA, qualifier: qPlus, value: "positive.matching.com/ / "}, Permerror, true, true},
 	}
 
 	var match bool
@@ -440,24 +451,24 @@ func TestParseAIpv6(t *testing.T) {
 
 func TestParseIp4(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true, false},
-		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true, false},
-		{&token{tIP4, qQuestionMark, "127.0.0.1"}, Neutral, true, false},
-		{&token{tIP4, qTilde, "127.0.0.1"}, Softfail, true, false},
+		{&token{mechanism: tIP4, qualifier: qPlus, value: "127.0.0.1"}, Pass, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "127.0.0.1"}, Fail, true, false},
+		{&token{mechanism: tIP4, qualifier: qQuestionMark, value: "127.0.0.1"}, Neutral, true, false},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.1"}, Softfail, true, false},
 
-		{&token{tIP4, qTilde, "127.0.0.0/16"}, Softfail, true, false},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "127.0.0.0/16"}, Softfail, true, false},
 
-		{&token{tIP4, qTilde, "192.168.1.2"}, Softfail, false, false},
-		{&token{tIP4, qMinus, "192.168.1.5/16"}, Fail, false, false},
+		{&token{mechanism: tIP4, qualifier: qTilde, value: "192.168.1.2"}, Softfail, false, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "192.168.1.5/16"}, Fail, false, false},
 
-		{&token{tIP4, qMinus, "random string"}, Permerror, true, false},
-		{&token{tIP4, qMinus, "2001:4860:0:2001::68"}, Permerror, true, false},
-		{&token{tIP4, qMinus, "2001:4860:0:2001::68/48"}, Permerror, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Permerror, true, false},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "2001:4860:0:2001::68/48"}, Permerror, true, false},
 
-		{&token{tIP4, qPlus, "127.0.0.1"}, Pass, true, true},
-		{&token{tIP4, qMinus, "127.0.0.1"}, Fail, true, true},
-		{&token{tIP4, qMinus, "random string"}, Permerror, true, true},
-		{&token{tIP4, qMinus, "random string"}, Permerror, true, true},
+		{&token{mechanism: tIP4, qualifier: qPlus, value: "127.0.0.1"}, Pass, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "127.0.0.1"}, Fail, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, true},
+		{&token{mechanism: tIP4, qualifier: qMinus, value: "random string"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -483,21 +494,21 @@ func TestParseIp4(t *testing.T) {
 
 func TestParseIp6(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, false},
-		{&token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, false},
-		{&token{tIP6, qQuestionMark, "2001:4860:0:2001::68"}, Neutral, true, false},
-		{&token{tIP6, qTilde, "2001:4860:0:2001::68"}, Softfail, true, false},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "2001:4860:0:2001::68"}, Pass, true, false},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Fail, true, false},
+		{&token{mechanism: tIP6, qualifier: qQuestionMark, value: "2001:4860:0:2001::68"}, Neutral, true, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68"}, Softfail, true, false},
 
-		{&token{tIP6, qTilde, "2001:4860:0:2001::68/64"}, Softfail, true, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "2001:4860:0:2001::68/64"}, Softfail, true, false},
 
-		{&token{tIP6, qTilde, "::1"}, Softfail, false, false},
-		{&token{tIP6, qMinus, "2002::/16"}, Fail, false, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "::1"}, Softfail, false, false},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2002::/16"}, Fail, false, false},
 
-		{&token{tIP6, qMinus, "random string"}, Permerror, true, false},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "random string"}, Permerror, true, false},
 
-		{&token{tIP6, qPlus, "2001:4860:0:2001::68"}, Pass, true, true},
-		{&token{tIP6, qMinus, "2001:4860:0:2001::68"}, Fail, true, true},
-		{&token{tIP6, qTilde, "::1"}, Softfail, false, true},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "2001:4860:0:2001::68"}, Pass, true, true},
+		{&token{mechanism: tIP6, qualifier: qMinus, value: "2001:4860:0:2001::68"}, Fail, true, true},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "::1"}, Softfail, false, true},
 	}
 
 	var match bool
@@ -523,11 +534,11 @@ func TestParseIp6(t *testing.T) {
 
 func TestParseIp6WithIp4(t *testing.T) {
 	testcases := []TokenTestCase{
-		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, false},
-		{&token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, false},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "127.0.0.1"}, Permerror, true, false},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "127.0.0.1"}, Permerror, true, false},
 
-		{&token{tIP6, qPlus, "127.0.0.1"}, Permerror, true, true},
-		{&token{tIP6, qTilde, "127.0.0.1"}, Permerror, true, true},
+		{&token{mechanism: tIP6, qualifier: qPlus, value: "127.0.0.1"}, Permerror, true, true},
+		{&token{mechanism: tIP6, qualifier: qTilde, value: "127.0.0.1"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -583,18 +594,18 @@ func TestParseMX(t *testing.T) {
 	p := newParser(WithResolver(testResolver)).with(stub, domain, "matching.com", net.IP{0, 0, 0, 0})
 
 	testcases := []TokenTestCaseWithTTL{
-		{&token{tMX, qPlus, "matching.com"}, Pass, true, 2},
-		{&token{tMX, qPlus, "matching.com/24"}, Pass, true, 2},
-		{&token{tMX, qPlus, "matching.com/24/64"}, Pass, true, 2},
-		{&token{tMX, qPlus, "/24"}, Pass, true, 2}, // domain is matching.com.
-		{&token{tMX, qPlus, ""}, Pass, true, 0},
-		{&token{tMX, qMinus, ""}, Fail, true, 0},
-		{&token{tMX, qPlus, "idontexist"}, Pass, false, 0},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com"}, Pass, true, 2},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com/24"}, Pass, true, 2},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com/24/64"}, Pass, true, 2},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "/24"}, Pass, true, 2}, // domain is matching.com.
+		{&token{mechanism: tMX, qualifier: qPlus, value: ""}, Pass, true, 0},
+		{&token{mechanism: tMX, qualifier: qMinus, value: ""}, Fail, true, 0},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false, 0},
 		// Mind that the domain is matching.NET and we expect Parser
 		// to not match results.
-		{&token{tMX, qPlus, "matching.net"}, Pass, false, 0},
-		{&token{tMX, qPlus, "matching.net/24"}, Pass, false, 0},
-		{&token{tMX, qPlus, "matching.net/24/64"}, Pass, false, 0},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.net"}, Pass, false, 0},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.net/24"}, Pass, false, 0},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.net/24/64"}, Pass, false, 0},
 	}
 
 	var match bool
@@ -640,14 +651,14 @@ func TestParseMXNegativeTests(t *testing.T) {
 	defer dns.HandleRemove("matching.com.")
 
 	testcases := []TokenTestCase{
-		{&token{tMX, qPlus, "matching.com"}, Pass, false, false},
-		{&token{tMX, qPlus, ""}, Pass, false, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "matching.com"}, Pass, false, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: ""}, Pass, false, false},
 		// TokenTestCase{&token{tMX, qPlus, "google.com"}, Pass, false},
-		{&token{tMX, qPlus, "idontexist"}, Pass, false, false},
-		{&token{tMX, qMinus, "matching.com"}, Fail, false, false},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false, false},
+		{&token{mechanism: tMX, qualifier: qMinus, value: "matching.com"}, Fail, false, false},
 
-		{&token{tMX, qPlus, "idontexist"}, Pass, false, true},
-		{&token{tMX, qMinus, "matching.com"}, Fail, false, true},
+		{&token{mechanism: tMX, qualifier: qPlus, value: "idontexist"}, Pass, false, true},
+		{&token{mechanism: tMX, qualifier: qMinus, value: "matching.com"}, Fail, false, true},
 	}
 
 	var match bool
@@ -708,10 +719,10 @@ func TestParseInclude(t *testing.T) {
 
 	p := newParser(WithResolver(testResolver)).with(stub, "matching.net", "matching.net", net.IP{0, 0, 0, 0})
 	testcases := []TokenTestCase{
-		{&token{tInclude, qPlus, "_spf.matching.net"}, Pass, true, false},
-		{&token{tInclude, qMinus, "_spf.matching.net"}, Fail, true, false},
-		{&token{tInclude, qTilde, "_spf.matching.net"}, Softfail, true, false},
-		{&token{tInclude, qQuestionMark, "_spf.matching.net"}, Neutral, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, Pass, true, false},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, Fail, true, false},
+		{&token{mechanism: tInclude, qualifier: qTilde, value: "_spf.matching.net"}, Softfail, true, false},
+		{&token{mechanism: tInclude, qualifier: qQuestionMark, value: "_spf.matching.net"}, Neutral, true, false},
 	}
 
 	for i, testcase := range testcases {
@@ -775,17 +786,17 @@ func TestParseIncludeNegative(t *testing.T) {
 	}
 
 	testcases := []TokenTestCase{
-		{&token{tInclude, qMinus, "_spf.matching.net"}, None, false, false},
-		{&token{tInclude, qPlus, "_spf.matching.net"}, None, false, false},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: "_spf.matching.net"}, None, false, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_spf.matching.net"}, None, false, false},
 		// TODO(zaccone): Following 3 tests are practically identitcal
-		{&token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, false},
-		{&token{tInclude, qPlus, "nospf.matching.net"}, Permerror, true, false},
-		{&token{tInclude, qPlus, "idontexist.matching.net"}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_errspf.matching.net"}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "nospf.matching.net"}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "idontexist.matching.net"}, Permerror, true, false},
 
 		// empty input qualifier results in Permerror withour recursive calls
-		{&token{tInclude, qMinus, ""}, Permerror, true, false},
+		{&token{mechanism: tInclude, qualifier: qMinus, value: ""}, Permerror, true, false},
 
-		{&token{tInclude, qPlus, "_errspf.matching.net"}, Permerror, true, true},
+		{&token{mechanism: tInclude, qualifier: qPlus, value: "_errspf.matching.net"}, Permerror, true, true},
 	}
 
 	var match bool
@@ -833,17 +844,17 @@ func TestParseExists(t *testing.T) {
 	defer dns.HandleRemove("positive.matching.com.")
 
 	testcases := []TokenTestCase{
-		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, false},
-		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, false},
-		{&token{tExists, qMinus, "idontexist.matching.net"}, Fail, false, false},
-		{&token{tExists, qMinus, "idontexist.%{d}"}, Fail, false, false},
-		{&token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
-		{&token{tExists, qTilde, "positive.%{d}"}, Softfail, true, false},
-		{&token{tExists, qTilde, ""}, Permerror, true, false},
-		{&token{tExists, qTilde, "invalidsyntax%{}"}, Permerror, true, false},
+		{&token{mechanism: tExists, qualifier: qPlus, value: "positive.matching.net"}, Pass, true, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "positive.matching.net"}, Fail, true, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.matching.net"}, Fail, false, false},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "idontexist.%{d}"}, Fail, false, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "positive.%{d}"}, Softfail, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: ""}, Permerror, true, false},
+		{&token{mechanism: tExists, qualifier: qTilde, value: "invalidsyntax%{}"}, Permerror, true, false},
 
-		{&token{tExists, qPlus, "positive.matching.net"}, Pass, true, true},
-		{&token{tExists, qMinus, "positive.matching.net"}, Fail, true, true},
+		{&token{mechanism: tExists, qualifier: qPlus, value: "positive.matching.net"}, Pass, true, true},
+		{&token{mechanism: tExists, qualifier: qMinus, value: "positive.matching.net"}, Fail, true, true},
 	}
 
 	for _, testcase := range testcases {
@@ -1403,8 +1414,8 @@ func TestCheckHost_Loops(t *testing.T) {
 			"normal mode", "ab.example.com", Permerror,
 			SpfError{
 				spferr.KindValidation,
-				&token{tInclude, qPlus, "ba.example.com"},
-				SpfError{spferr.KindValidation, &token{tInclude, qPlus, "ab.example.com"}, SpfError{kind: spferr.KindValidation, err: ErrLoopDetected}},
+				&token{mechanism: tInclude, qualifier: qPlus, value: "ba.example.com", key: "include"},
+				SpfError{spferr.KindValidation, &token{mechanism: tInclude, qualifier: qPlus, value: "ab.example.com", key: "include"}, SpfError{kind: spferr.KindValidation, err: ErrLoopDetected}},
 			},
 			[]Option{WithResolver(testResolver)},
 		},

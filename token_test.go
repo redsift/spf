@@ -13,27 +13,27 @@ func TestTokenSyntaxValidation(t *testing.T) {
 		{nil, rune('='), false},
 		{
 			&token{
-				tInclude, qPlus, "matching.com",
+				mechanism: tInclude, qualifier: qPlus, value: "matching.com",
 			}, rune(':'), true,
 		},
 		{
 			&token{
-				tInclude, qPlus, "",
+				mechanism: tInclude, qualifier: qPlus, value: "",
 			}, rune(':'), false,
 		},
 		{
 			&token{
-				tErr, qErr, "",
+				mechanism: tErr, qualifier: qErr, value: "",
 			}, rune('='), true,
 		},
 		{
 			&token{
-				tAll, qMinus, "matching.com",
+				mechanism: tAll, qualifier: qMinus, value: "matching.com",
 			}, rune(':'), true,
 		},
 		{
 			&token{
-				tAll, qMinus, "matching.com",
+				mechanism: tAll, qualifier: qMinus, value: "matching.com",
 			}, rune('='), false,
 		},
 	}

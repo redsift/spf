@@ -250,7 +250,7 @@ func (p *parser) check() (Result, string, unused, error) {
 		extras  *ResponseExtras
 	)
 
-	mechanisms, redirect, explanation, err := sortTokens(tokens)
+	mechanisms, redirect, explanation, unknownModifiers, err := sortTokens(tokens)
 	if err != nil {
 		return Permerror, "", unused{mechanisms, redirect}, err
 	}
@@ -310,6 +310,10 @@ func (p *parser) check() (Result, string, unused, error) {
 		result, err = p.handleRedirect(redirect)
 	}
 
+	for i, token = range unknownModifiers {
+		p.fireDirective(token, "")
+	}
+
 	if p.ignoreMatches {
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
@@ -342,7 +346,7 @@ func (p *parser) fireDirective(t *token, effectiveValue string) {
 	if p.listener == nil {
 		return
 	}
-	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.value, effectiveValue)
+	p.listener.Directive(false, t.qualifier.String(), t.mechanism.String(), t.key, t.value, effectiveValue)
 }
 
 func (p *parser) fireMatchingIP(t *token, fqdn string, ipn net.IPNet, host string, ip net.IP) {
@@ -356,7 +360,7 @@ func (p *parser) fireUnusedDirective(t *token) {
 	if p.listener == nil || t == nil {
 		return
 	}
-	p.listener.Directive(true, t.qualifier.String(), t.mechanism.String(), t.value, "")
+	p.listener.Directive(true, t.qualifier.String(), t.mechanism.String(), t.key, t.value, "")
 }
 
 func (p *parser) fireNonMatch(t *token, r Result, e error) {
@@ -396,8 +400,9 @@ func (p *parser) fireFirstMatch(r Result, e error) {
 	})
 }
 
-func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, err error) {
+func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *token, unknownModifiers []*token, err error) {
 	mechanisms = make([]*token, 0, len(tokens))
+
 	for _, token := range tokens {
 		if token.isErr() {
 			err = NewSpfError(spferr.KindSyntax, ErrSyntaxError, token)
@@ -421,6 +426,10 @@ func sortTokens(tokens []*token) (mechanisms []*token, redirect, explanation *to
 			}
 			explanation = token
 			continue
+		}
+
+		if token.mechanism == tUnknownModifier {
+			unknownModifiers = append(unknownModifiers, token)
 		}
 	}
 

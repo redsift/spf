@@ -48,7 +48,7 @@ func (p *Printer) CheckHostResult(r spf.Result, explanation string, extras *spf.
 	fmt.Fprintf(p.w, "%s= %s, %v, %v, %v\n", strings.Repeat("  ", p.c), r, extras, explanation, err)
 }
 
-func (p *Printer) Directive(unused bool, qualifier, mechanism, value, effectiveValue string) {
+func (p *Printer) Directive(unused bool, qualifier, mechanism, key, value, effectiveValue string) {
 	fmt.Fprintf(p.w, "%s", strings.Repeat("  ", p.c))
 	if qualifier == "+" {
 		qualifier = ""
@@ -61,6 +61,11 @@ func (p *Printer) Directive(unused bool, qualifier, mechanism, value, effectiveV
 	if mechanism == "v" {
 		delimiter = "="
 	}
+
+	if mechanism[0] == ':' {
+		fmt.Fprintf(p.w, " (%s)", key)
+	}
+
 	if value != "" {
 		fmt.Fprintf(p.w, "%s%s", delimiter, value)
 	}

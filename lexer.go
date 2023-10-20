@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -35,7 +36,7 @@ func (l *lexer) scan() *token {
 	for {
 		r, eof := l.next()
 		if eof {
-			return &token{tEOF, tEOF, ""}
+			return &token{mechanism: tEOF, qualifier: tEOF}
 		} else if isWhitespace(r) || l.eof() { // we just scanned some meaningful data
 			token := l.scanIdent()
 			l.scanWhitespaces()
@@ -88,7 +89,7 @@ func (l *lexer) scanWhitespaces() {
 // and value itself.
 // The default token has `mechanism` set to tErr, that is, error state.
 func (l *lexer) scanIdent() *token {
-	t := &token{tErr, qPlus, ""}
+	t := &token{mechanism: tErr, qualifier: qPlus}
 	start := l.start
 	cursor := l.start
 	hasQualifier := false
@@ -117,9 +118,19 @@ loop:
 				}
 				t.value = strings.TrimSpace(l.input[p:l.pos])
 			}
+			// save qualifier
+			q := t.qualifier
 			if t.value == "" || !checkTokenSyntax(t, ch) {
 				t.qualifier = qErr
 				t.mechanism = tErr
+			}
+			// save mechanism key for future reference
+			t.key = l.input[l.start : cursor-size]
+
+			// special case for unknown modifier syntax
+			if ch == '=' && t.mechanism == tErr && q != qErr && checkUnknownModifierSyntax(t.key, t.value) {
+				t.mechanism = tUnknownModifier
+				t.qualifier = q
 			}
 			break loop
 		}
@@ -135,6 +146,27 @@ loop:
 	}
 
 	return t
+}
+
+var (
+	// Define a regular expression that matches the ABNF rule for 'name'
+	// name = ALPHA *( ALPHA / DIGIT / "-" / "_" / "." )
+	// ALPHA = <A-Z / a-z>
+	// DIGIT = <0-9>
+	reNameRFC7208 = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-_.]*$`)
+	// macro-string     = *( macro-expand / macro-literal )
+	// macro-expand     = ( "%{" macro-letter transformers *delimiter "}" ) / "%%" / "%_" / "%-"
+	// macro-literal    = %x21-24 / %x26-7E ; visible characters except "%"
+	// macro-letter     = "s" / "l" / "o" / "d" / "i" / "p" / "h" / "c" / "r" / "t" / "v"
+	// transformers     = *DIGIT [ "r" ]
+	// delimiter        = "." / "-" / "+" / "," / "/" / "_" / "="
+	// Notice the addition of \ before the closing } in the macro-expand part.
+	// This should force the regex to respect the ABNF rules more closely.
+	reMacroStringRFC7208 = regexp.MustCompile(`^((%\{[slodiphcrtv][0-9]*r?[.\-+,/_=]*\})|%%|%_|%-|[\x21\x22\x23\x24\x26-\x7E])*$`)
+)
+
+func checkUnknownModifierSyntax(key, value string) bool {
+	return reNameRFC7208.MatchString(key) && reMacroStringRFC7208.MatchString(value)
 }
 
 // isWhitespace returns true if the rune is a space, tab, or newline.
