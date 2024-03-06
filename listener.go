@@ -12,8 +12,8 @@ type Listener interface {
 	NonMatch(qualifier, mechanism, value string, result Result, err error)
 	Match(qualifier, mechanism, value string, result Result, explanation string, extras *ResponseExtras, err error)
 	FirstMatch(r Result, err error)
-	MatchingIP(qualifier, mechanism, value string, fqdn string, ipn net.IPNet, host string, ip net.IP)
-	// VoidLookup Should only be called after a Directive or CheckHost call, to ensure count is updated to correct
-	// directive and state is correct
-	VoidLookup(qualifier, mechanism, value string, fqdn string)
+	MatchingIP(qualifier, mechanism, value, fqdn string, ipn net.IPNet, host string, ip net.IP)
+	// LookupExtras should only be called after a Directive or CheckHost call,
+	// to ensure updates on correct directive and state stay consistent.
+	LookupExtras(qualifier, mechanism, value, fqdn string, extras *ResponseExtras)
 }

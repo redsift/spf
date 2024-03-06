@@ -83,11 +83,6 @@ func (p *Printer) Match(qualifier, mechanism, value string, result spf.Result, e
 	// fmt.Fprintf(p.w, "%sMATCH: %s, %q, %v\n", strings.Repeat("  ", p.c), result, explanation, err)
 }
 
-func (p *Printer) VoidLookup(qualifier, mechanism, value string, fqdn string) {
-	// do nothing
-	fmt.Fprintf(p.w, "%sVOID: %s\n", strings.Repeat("  ", p.c), fqdn)
-}
-
 func (p *Printer) FirstMatch(r spf.Result, err error) {
 	fmt.Fprintf(p.w, "%sFIRST-MATCH: %s, %v\n", strings.Repeat("  ", p.c), r, err)
 }
@@ -135,4 +130,10 @@ func (p *Printer) MatchIP(name string, matcher spf.IPMatcherFunc) (bool, *spf.Re
 
 func (p *Printer) MatchMX(name string, matcher spf.IPMatcherFunc) (bool, *spf.ResponseExtras, error) {
 	return p.r.MatchMX(name, matcher)
+}
+
+func (p *Printer) LookupExtras(qualifier, mechanism, value, fqdn string, extras *spf.ResponseExtras) {
+	if extras.Void() {
+		fmt.Fprintf(p.w, "%sVOID: %s\n", strings.Repeat("  ", p.c), fqdn)
+	}
 }
