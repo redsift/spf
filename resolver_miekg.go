@@ -194,10 +194,7 @@ func (r *miekgDNSResolver) LookupTXT(name string) ([]string, *ResponseExtras, er
 		minTTL = 0
 	}
 
-	extras := NewResponseExtras(
-		time.Duration(minTTL)*time.Second,
-		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
-	)
+	extras := NewResponseExtras(time.Duration(minTTL)*time.Second, (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError, nil)
 
 	return txts, extras, nil
 }
@@ -216,7 +213,7 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 
 	if res.Rcode == dns.RcodeNameError {
 		// Mark it as a void lookup as we got NXDomain
-		return nil, NewResponseExtras(0, true), ErrDNSPermerror
+		return nil, NewResponseExtras(0, true, nil), ErrDNSPermerror
 	}
 
 	var minTTL uint32 = math.MaxUint32
@@ -235,10 +232,7 @@ func (r *miekgDNSResolver) LookupTXTStrict(name string) ([]string, *ResponseExtr
 		minTTL = 0
 	}
 
-	extras := NewResponseExtras(
-		time.Duration(minTTL)*time.Second,
-		len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess,
-	)
+	extras := NewResponseExtras(time.Duration(minTTL)*time.Second, len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess, nil)
 
 	return txts, extras, nil
 }
@@ -271,10 +265,7 @@ func (r *miekgDNSResolver) Exists(name string) (bool, *ResponseExtras, error) {
 		minTTL = 0
 	}
 
-	extras := NewResponseExtras(
-		time.Duration(minTTL)*time.Second,
-		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
-	)
+	extras := NewResponseExtras(time.Duration(minTTL)*time.Second, (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError, nil)
 
 	return len(res.Answer) > 0, extras, nil
 }
@@ -298,7 +289,7 @@ func matchIP(rrs []dns.RR, matcher IPMatcherFunc, name string) (bool, *ResponseE
 		}
 
 		if m, e := matcher(ip, name); m || e != nil {
-			return m, NewResponseExtras(time.Duration(ttl)*time.Second, false), e
+			return m, NewResponseExtras(time.Duration(ttl)*time.Second, false, nil), e
 		}
 	}
 	return false, nil, nil
@@ -440,10 +431,7 @@ func (r *miekgDNSResolver) LookupPTR(name string) ([]string, *ResponseExtras, er
 		minTTL = 0
 	}
 
-	extras := NewResponseExtras(
-		time.Duration(minTTL)*time.Second,
-		(len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError,
-	)
+	extras := NewResponseExtras(time.Duration(minTTL)*time.Second, (len(res.Answer) == 0 && res.Rcode == dns.RcodeSuccess) || res.Rcode == dns.RcodeNameError, nil)
 
 	return ptrs, extras, nil
 }

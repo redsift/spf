@@ -104,7 +104,7 @@ func ExamplePrinter() {
 	//     ip4:87.253.232.0/21 (87.253.232.0/21)
 	//     ip4:185.189.236.0/22 (185.189.236.0/22)
 	//     ?all
-	//   = neutral, &{1491000000000 false}, , <nil>
+	//   = neutral, &{1491000000000 false []}, , <nil>
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
@@ -114,7 +114,7 @@ func ExamplePrinter() {
 	//     ip4:198.2.128.0/18 (198.2.128.0/18)
 	//     ip4:148.105.8.0/21 (148.105.8.0/21)
 	//     ?all
-	//   = neutral, &{152000000000 false}, , <nil>
+	//   = neutral, &{152000000000 false []}, , <nil>
 	//   ip4:109.168.127.160/27 (109.168.127.160/27)
 	//   ip4:212.31.252.64/27 (212.31.252.64/27)
 	//   ip4:212.77.68.6 (212.77.68.6)
@@ -133,7 +133,7 @@ func ExamplePrinter() {
 	//   ip4:109.168.121.57/32 (109.168.121.57/32)
 	//   ip4:109.168.121.58/32 (109.168.121.58/32)
 	//   -all
-	// = fail, &{269000000000 false}, , <nil>
+	// = fail, &{269000000000 false []}, , <nil>
 	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
 	//   SPF: v=spf1 ptr ~all
@@ -142,7 +142,7 @@ func ExamplePrinter() {
 	//     lookup(PTR) 0.0.0.0
 	//   VOID: ptr.test.redsift.io.
 	//   ~all
-	// = softfail, &{299000000000 false}, , <nil>
+	// = softfail, &{299000000000 false []}, , <nil>
 	// ## of lookups: 15
 }
 
@@ -210,9 +210,9 @@ func ExamplePrinter_ipv6nil() {
 	//       lookup(a:web.q4press.com.) web.q4press.com. -> (52.23.113.139/32 has? 0.0.0.0) = false
 	//       lookup(a:web.q4press.com.) web.q4press.com. -> (54.177.118.13/32 has? 0.0.0.0) = false
 	//     -all
-	//   = fail, &{3303000000000 false}, , <nil>
+	//   = fail, &{3303000000000 false []}, , <nil>
 	//   ~all
-	// = softfail, &{59000000000 false}, , <nil>
+	// = softfail, &{59000000000 false []}, , <nil>
 	//
 }
 
@@ -254,12 +254,12 @@ func ExamplePrinter_voids() {
 	//       ip4:80.194.146.205 (80.194.146.205)
 	//       -all
 	//       FIRST-MATCH: fail, <nil>
-	//     = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	//     = 8, &{60000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	//     include:err008.3.spf.qa.redsift.tech (err008.3.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.3.spf.qa.redsift.tech.", "redsift.io")
 	//         lookup(TXT:strict) err008.3.spf.qa.redsift.tech.
 	//       VOID: err008.3.spf.qa.redsift.tech.
-	//     = none, &{0 true}, , permanent DNS error
+	//     = none, &{0 true []}, , permanent DNS error
 	//     include:err008.4.spf.qa.redsift.tech (err008.4.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.4.spf.qa.redsift.tech.", "redsift.io")
 	//         lookup(TXT:strict) err008.4.spf.qa.redsift.tech.
@@ -269,18 +269,18 @@ func ExamplePrinter_voids() {
 	//       CHECK_HOST("0.0.0.0", "err008.5.spf.qa.redsift.tech.", "redsift.io")
 	//           lookup(TXT:strict) err008.5.spf.qa.redsift.tech.
 	//         VOID: err008.5.spf.qa.redsift.tech.
-	//       = none, &{0 true}, , SPF record not found
+	//       = none, &{0 true []}, , SPF record not found
 	//       include:err008.6.spf.qa.redsift.tech (err008.6.spf.qa.redsift.tech.)
 	//       CHECK_HOST("0.0.0.0", "err008.6.spf.qa.redsift.tech.", "redsift.io")
 	//           lookup(TXT:strict) err008.6.spf.qa.redsift.tech.
 	//         VOID: err008.6.spf.qa.redsift.tech.
-	//       = none, &{0 true}, , permanent DNS error
+	//       = none, &{0 true []}, , permanent DNS error
 	//       -all
-	//     = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	//     = 8, &{60000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	//     -all
-	//   = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	//   = 8, &{60000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	//   -all
-	// = 8, &{60000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	// = 8, &{60000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	// ## of lookups: 6
 
 }
@@ -374,7 +374,7 @@ func ExamplePrinter_ignoreMatches() {
 	//     ip4:185.189.236.0/22 (185.189.236.0/22)
 	//     ?all
 	//     FIRST-MATCH: neutral, <nil>
-	//   = 8, &{1491000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	//   = 8, &{1491000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
@@ -384,7 +384,7 @@ func ExamplePrinter_ignoreMatches() {
 	//     ip4:198.2.128.0/18 (198.2.128.0/18)
 	//     ip4:148.105.8.0/21 (148.105.8.0/21)
 	//     ?all
-	//   = 8, &{152000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	//   = 8, &{152000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	//   ip4:109.168.127.160/27 (109.168.127.160/27)
 	//   ip4:212.31.252.64/27 (212.31.252.64/27)
 	//   ip4:212.77.68.6 (212.77.68.6)
@@ -403,7 +403,7 @@ func ExamplePrinter_ignoreMatches() {
 	//   ip4:109.168.121.57/32 (109.168.121.57/32)
 	//   ip4:109.168.121.58/32 (109.168.121.58/32)
 	//   -all
-	// = 8, &{269000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	// = 8, &{269000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
 	//   SPF: v=spf1 ptr ~all
@@ -413,6 +413,6 @@ func ExamplePrinter_ignoreMatches() {
 	//   VOID: ptr.test.redsift.io.
 	//   ~all
 	//   FIRST-MATCH: softfail, <nil>
-	// = 8, &{299000000000 false}, , result is unreliable with IgnoreMatches option enabled
+	// = 8, &{299000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	// ## of lookups: 15
 }

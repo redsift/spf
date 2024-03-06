@@ -187,9 +187,8 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 
 	var txts []string
 	txts, extras, err = p.resolver.LookupTXTStrict(NormalizeFQDN(domain))
-	if extras.Void() {
-		p.fireVoidLookup(nil, domain)
-	}
+
+	p.fireLookupExtras(nil, domain, extras)
 
 	switch err {
 	case nil:
@@ -377,17 +376,17 @@ func (p *parser) fireMatch(t *token, r Result, explanation string, extras *Respo
 	p.listener.Match(t.qualifier.String(), t.mechanism.String(), t.value, r, explanation, extras, e)
 }
 
-func (p *parser) fireVoidLookup(t *token, fqdn string) {
+func (p *parser) fireLookupExtras(t *token, fqdn string, extras *ResponseExtras) {
 	if p.listener == nil {
 		return
 	}
 
 	if t == nil {
-		p.listener.VoidLookup("", "", "", fqdn)
+		p.listener.LookupExtras("", "", "", fqdn, extras)
 		return
 	}
 
-	p.listener.VoidLookup(t.qualifier.String(), t.mechanism.String(), t.value, fqdn)
+	p.listener.LookupExtras(t.qualifier.String(), t.mechanism.String(), t.value, fqdn, extras)
 }
 
 func (p *parser) fireFirstMatch(r Result, e error) {
@@ -536,9 +535,9 @@ func (p *parser) parseA(t *token) (bool, Result, *ResponseExtras, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if extras.Void() {
-		p.fireVoidLookup(t, fqdn)
-	}
+
+	p.fireLookupExtras(t, fqdn, extras)
+
 	if err != nil {
 		return found, result, nil, NewSpfError(spferr.KindDNS, err, nil)
 	}
@@ -576,9 +575,9 @@ func (p *parser) parseMX(t *token) (bool, Result, *ResponseExtras, error) {
 		p.fireMatchingIP(t, fqdn, n, host, p.ip)
 		return n.Contains(p.ip), nil
 	})
-	if extras.Void() {
-		p.fireVoidLookup(t, fqdn)
-	}
+
+	p.fireLookupExtras(t, fqdn, extras)
+
 	if err != nil {
 		return true, Permerror, nil, NewSpfError(spferr.KindDNS, err, t)
 	}
@@ -673,9 +672,8 @@ func (p *parser) parseExists(t *token) (bool, Result, *ResponseExtras, error) {
 	result, _ := matchingResult(t.qualifier)
 
 	found, extras, err := p.resolver.Exists(resolvedDomain)
-	if extras.Void() {
-		p.fireVoidLookup(t, resolvedDomain)
-	}
+
+	p.fireLookupExtras(t, resolvedDomain, extras)
 
 	switch err {
 	case nil:
@@ -704,9 +702,8 @@ func (p *parser) parsePtr(t *token) (bool, Result, *ResponseExtras, error) {
 	}
 
 	ptrs, extras, err := p.resolver.LookupPTR(p.ip.String())
-	if extras.Void() {
-		p.fireVoidLookup(t, fqdn)
-	}
+
+	p.fireLookupExtras(t, fqdn, extras)
 
 	switch err {
 	case nil:
