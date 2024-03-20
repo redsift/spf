@@ -29,6 +29,26 @@ var (
 	ErrTooManyErrors              = errors.New("too many errors")
 )
 
+type PolicyDeploymentError struct {
+	// Err is the error that occurred during the policy lookup.
+	Err error
+	// Domain is the domain that was being looked up.
+	Domain string
+	// Policies is the list of policies that were found as part of the lookup.
+	Policies []string
+}
+
+func (e *PolicyDeploymentError) Error() string {
+	if e == nil {
+		return "<nil>"
+	}
+	return e.Err.Error()
+}
+
+func (e *PolicyDeploymentError) Unwrap() error {
+	return e.Err
+}
+
 // DomainError represents a domain check error
 type DomainError struct {
 	Err    string // description of the error
@@ -337,13 +357,13 @@ func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string
 // "v=spf1".  Note that the version section is terminated by either an
 // SP character or the end of the record.  As an example, a record with
 // a version section of "v=spf10" does not match and is discarded.
-func filterSPF(txt []string) (string, error) {
+func filterSPF(txt []string) []string {
 	const (
 		v    = "v=spf1"
 		vLen = 6
 	)
 	var (
-		spf string
+		spf []string
 		n   int
 	)
 
@@ -353,7 +373,7 @@ func filterSPF(txt []string) (string, error) {
 		}
 		if len(s) == vLen {
 			if s == v {
-				spf = s
+				spf = append(spf, s)
 				n++
 			}
 			continue
@@ -364,13 +384,11 @@ func filterSPF(txt []string) (string, error) {
 		if !strings.HasPrefix(s, v) {
 			continue
 		}
-		spf = s
+		spf = append(spf, s)
 		n++
 	}
-	if n > 1 {
-		return "", ErrTooManySPFRecords
-	}
-	return spf, nil
+
+	return spf
 }
 
 // isDomainName checks if a string is a presentation-format domain name
