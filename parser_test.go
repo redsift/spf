@@ -1329,25 +1329,28 @@ func TestSelectingRecord(t *testing.T) {
 	}))
 	defer dns.HandleRemove("many-records.")
 
-	samples := []struct {
+	tests := []struct {
 		d string
 		r Result
 		e error
 	}{
-		{"notexists", None, SpfError{kind: spferr.KindDNS, err: ErrDNSPermerror}},
-		{"v-spf2", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
-		{"v-spf10", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
-		{"no-record", None, SpfError{kind: spferr.KindValidation, err: ErrSPFNotFound}},
-		{"many-records", Permerror, SpfError{kind: spferr.KindValidation, err: ErrTooManySPFRecords}},
+		{"notexists", None, ErrDNSPermerror},
+		{"v-spf2", None, ErrSPFNotFound},
+		{"v-spf10", None, ErrSPFNotFound},
+		{"no-record", None, ErrSPFNotFound},
+		{"many-records", Permerror, ErrTooManySPFRecords},
 		{"mixed-records", Pass, nil},
 	}
 
 	ip := net.ParseIP("10.0.0.1")
-	for i, s := range samples {
-		r, _, _, e := CheckHost(ip, s.d, s.d, WithResolver(testResolver))
-		if r != s.r || e != s.e {
-			t.Errorf("#%d `%s` want [`%v` `%v`], got [`%v` `%v`]", i, s.d, s.r, s.e, r, e)
-		}
+	for _, test := range tests {
+		tt := test
+		t.Run(tt.d, func(t *testing.T) {
+			r, _, _, e := CheckHost(ip, tt.d, tt.d, WithResolver(testResolver))
+			if r != test.r || !errors.Is(e, tt.e) {
+				t.Errorf("CheckHost(...)\n\twant [`%#v` `%#v`]\n\tgot  [`%#v` `%#v`]", tt.r, tt.e, r, e)
+			}
+		})
 	}
 }
 

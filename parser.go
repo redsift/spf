@@ -95,6 +95,10 @@ func Cause(e error) (string, error) {
 	return lastToken.String(), e
 }
 
+func (e SpfError) Unwrap() error {
+	return e.err
+}
+
 func (e SpfError) Cause() error {
 	return e.err
 }
@@ -204,13 +208,19 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	// If the resultant record set includes no records, check_host()
 	// produces the "none" result.  If the resultant record set includes
 	// more than one record, check_host() produces the "permerror" result.
-	spf, err = filterSPF(txts)
-	if err != nil {
-		return Permerror, "", "", NewSpfError(spferr.KindValidation, err, nil)
+	policies := filterSPF(txts)
+
+	if len(policies) == 0 {
+		return None, "", "", NewSpfError(spferr.KindValidation,
+			&PolicyDeploymentError{Err: ErrSPFNotFound, Domain: domain}, nil)
 	}
-	if spf == "" {
-		return None, "", "", NewSpfError(spferr.KindValidation, ErrSPFNotFound, nil)
+
+	if len(policies) > 1 {
+		return Permerror, "", "", NewSpfError(spferr.KindValidation,
+			&PolicyDeploymentError{Err: ErrTooManySPFRecords, Domain: domain, Policies: policies}, nil)
 	}
+
+	spf = policies[0]
 
 	r, expl, u, err = newParserWithVisited(p.visited, p.fireFirstMatchOnce, p.options...).with(spf, sender, domain, ip).check()
 	return
