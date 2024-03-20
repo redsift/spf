@@ -362,10 +362,7 @@ func filterSPF(txt []string) []string {
 		v    = "v=spf1"
 		vLen = 6
 	)
-	var (
-		spf []string
-		n   int
-	)
+	var spf []string
 
 	for _, s := range txt {
 		if len(s) < vLen {
@@ -374,7 +371,6 @@ func filterSPF(txt []string) []string {
 		if len(s) == vLen {
 			if s == v {
 				spf = append(spf, s)
-				n++
 			}
 			continue
 		}
@@ -385,7 +381,6 @@ func filterSPF(txt []string) []string {
 			continue
 		}
 		spf = append(spf, s)
-		n++
 	}
 
 	return spf
