@@ -319,11 +319,10 @@ func (p *parser) check() (Result, string, unused, error) {
 		result, err = p.handleRedirect(redirect)
 	}
 
-	for i, token = range unknownModifiers {
-		p.fireDirective(token, "")
-	}
-
 	if p.ignoreMatches {
+		for i, token = range unknownModifiers {
+			p.fireDirective(token, "")
+		}
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
 

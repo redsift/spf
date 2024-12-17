@@ -7,6 +7,7 @@ import (
 	. "github.com/redsift/spf/v2/testing"
 	"github.com/redsift/spf/v2/z"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -168,6 +169,9 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
+	if os.Getenv("SKIP_ON_NOSY_ISP") != "" {
+		t.Skip("nosy IPS (VirginMedia as an example) make this test flaky")
+	}
 	client := new(dns.Client)
 	resolver, err := NewMiekgDNSResolver("8.8.8.8:53", MiekgDNSClient(client))
 	if err != nil {
