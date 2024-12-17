@@ -2,12 +2,13 @@ package printer
 
 import (
 	"fmt"
-	"github.com/redsift/spf/v2"
 	"io"
 	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/redsift/spf/v2"
 )
 
 func New(w io.Writer, r spf.Resolver) *Printer {

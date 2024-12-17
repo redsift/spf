@@ -2,13 +2,14 @@ package spf
 
 import (
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/miekg/dns"
 	"github.com/outcaste-io/ristretto"
 	. "github.com/redsift/spf/v2/testing"
 	"github.com/redsift/spf/v2/z"
-	"os"
-	"testing"
-	"time"
 )
 
 var (

@@ -3,11 +3,12 @@ package printer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/outcaste-io/ristretto"
-	"github.com/redsift/spf/v2/z"
 	"log"
 	"net"
 	"os"
+
+	"github.com/outcaste-io/ristretto"
+	"github.com/redsift/spf/v2/z"
 
 	"github.com/redsift/spf/v2"
 )
@@ -282,7 +283,6 @@ func ExamplePrinter_voids() {
 	//   -all
 	// = 8, &{60000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	// ## of lookups: 6
-
 }
 
 func ExamplePrinter_ignoreMatches() {

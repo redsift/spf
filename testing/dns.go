@@ -2,11 +2,12 @@ package testing
 
 import (
 	"fmt"
-	"github.com/miekg/dns"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 func StartDNSServer(network string, laddr string) (*dns.Server, error) {

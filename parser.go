@@ -319,11 +319,10 @@ func (p *parser) check() (Result, string, unused, error) {
 		result, err = p.handleRedirect(redirect)
 	}
 
-	for i, token = range unknownModifiers {
-		p.fireDirective(token, "")
-	}
-
 	if p.ignoreMatches {
+		for i, token = range unknownModifiers {
+			p.fireDirective(token, "")
+		}
 		return unreliableResult, "", unused{}, ErrUnreliableResult
 	}
 
@@ -635,9 +634,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/
-
-	if err != nil {
+	*/ if err != nil {
 		err = wrap(t, err)
 	}
 

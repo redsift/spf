@@ -1,15 +1,17 @@
 package spf
 
 import (
+	"net"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/outcaste-io/ristretto"
 	. "github.com/redsift/spf/v2/testing"
 	"github.com/redsift/spf/v2/z"
-	"net"
-	"strings"
-	"testing"
-	"time"
 
 	"github.com/miekg/dns"
 )
@@ -168,6 +170,9 @@ func TestMiekgDNSResolver_CaseProd2(t *testing.T) {
 }
 
 func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
+	if os.Getenv("SKIP_ON_NOSY_ISP") != "" {
+		t.Skip("nosy IPS (VirginMedia as an example) make this test flaky")
+	}
 	client := new(dns.Client)
 	resolver, err := NewMiekgDNSResolver("8.8.8.8:53", MiekgDNSClient(client))
 	if err != nil {
@@ -231,7 +236,6 @@ func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
 
 	// Subtest for ExistsVoid
 	t.Run("ExistsVoid", func(t *testing.T) {
-
 		// case 1 NOERROR
 		found, extras, _ := testResolver.Exists("void.test.")
 		if found {

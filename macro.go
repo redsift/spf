@@ -381,6 +381,7 @@ func scanMacro(m *macro, p *parser) (stateFn, error) {
 func (m *macro) collect(result string) {
 	m.output = append(m.output, result)
 }
+
 func (m *macro) collectMissingMacros(macro string) {
 	if macro == "" {
 		return

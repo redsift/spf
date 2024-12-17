@@ -3,13 +3,14 @@ package spf
 import (
 	"errors"
 	"fmt"
-	"github.com/redsift/spf/v2/spferr"
-	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/redsift/spf/v2/spferr"
+	. "github.com/redsift/spf/v2/testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
