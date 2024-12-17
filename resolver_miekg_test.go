@@ -1,16 +1,17 @@
 package spf
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/outcaste-io/ristretto"
-	. "github.com/redsift/spf/v2/testing"
-	"github.com/redsift/spf/v2/z"
 	"net"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/outcaste-io/ristretto"
+	. "github.com/redsift/spf/v2/testing"
+	"github.com/redsift/spf/v2/z"
 
 	"github.com/miekg/dns"
 )
@@ -235,7 +236,6 @@ func TestMiekgDNSResolver_VoidLookups(t *testing.T) {
 
 	// Subtest for ExistsVoid
 	t.Run("ExistsVoid", func(t *testing.T) {
-
 		// case 1 NOERROR
 		found, extras, _ := testResolver.Exists("void.test.")
 		if found {

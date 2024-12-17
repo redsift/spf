@@ -2,11 +2,12 @@ package spf
 
 import (
 	"encoding/json"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/outcaste-io/ristretto"
 	. "github.com/redsift/spf/v2/testing"
 	"github.com/redsift/spf/v2/z"
-	"testing"
 
 	"github.com/miekg/dns"
 )

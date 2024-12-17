@@ -1,9 +1,10 @@
 package spf
 
 import (
-	. "github.com/redsift/spf/v2/testing"
 	"net"
 	"testing"
+
+	. "github.com/redsift/spf/v2/testing"
 
 	"github.com/miekg/dns"
 )
