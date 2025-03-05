@@ -1291,6 +1291,13 @@ func TestHandleExplanation(t *testing.T) {
 }
 
 func TestSelectingRecord(t *testing.T) {
+	dns.HandleFunc("invalid-vtag.", Zone(map[uint16][]string{
+		dns.TypeTXT: {
+			`invalid-vtag. 0 IN TXT "v=spf2 include:_1.spf.testsift.com -all"`,
+		},
+	}))
+	defer dns.HandleRemove("invalid-vtag.")
+
 	dns.HandleFunc("v-spf2.", Zone(map[uint16][]string{
 		dns.TypeTXT: {
 			`v-spf2. 0 IN TXT "v=spf2"`,
@@ -1335,6 +1342,7 @@ func TestSelectingRecord(t *testing.T) {
 		r Result
 		e error
 	}{
+		{"invalid-vtag", None, ErrSPFNotFound},
 		{"notexists", None, ErrDNSPermerror},
 		{"v-spf2", None, ErrSPFNotFound},
 		{"v-spf10", None, ErrSPFNotFound},
