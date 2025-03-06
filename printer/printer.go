@@ -27,6 +27,15 @@ type Printer struct {
 	done bool
 }
 
+func (p *Printer) TXT(candidates, policies []string) {
+	for _, s := range candidates {
+		fmt.Fprintf(p.w, "%sTXT-: %s\n", strings.Repeat("  ", p.c), s)
+	}
+	for _, s := range policies {
+		fmt.Fprintf(p.w, "%sTXT+: %s\n", strings.Repeat("  ", p.c), s)
+	}
+}
+
 func (p *Printer) LookupsCount() int {
 	// we deduct 1 for the very first lookup for root SPF policy
 	return int(p.lc) - 1

@@ -79,6 +79,7 @@ func ExamplePrinter() {
 	// Unordered output:
 	// CHECK_HOST("0.0.0.0", "subito.it.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) subito.it.
+	//   TXT+: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   SPF: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   v=spf1
 	//   mx:blocket.se (blocket.se.)
@@ -95,6 +96,7 @@ func ExamplePrinter() {
 	//   include:spf.mailjet.com (spf.mailjet.com.)
 	//   CHECK_HOST("0.0.0.0", "spf.mailjet.com.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) spf.mailjet.com.
+	//     TXT+: v=spf1 ip4:178.33.111.144 ip4:178.33.137.208/28 ip4:178.33.221.0/24 ip4:37.59.69.128/25 ip4:37.59.249.0/24 ip4:87.253.232.0/21 ip4:185.189.236.0/22 ?all
 	//     SPF: v=spf1 ip4:178.33.111.144 ip4:178.33.137.208/28 ip4:178.33.221.0/24 ip4:37.59.69.128/25 ip4:37.59.249.0/24 ip4:87.253.232.0/21 ip4:185.189.236.0/22 ?all
 	//     v=spf1
 	//     ip4:178.33.111.144 (178.33.111.144)
@@ -109,6 +111,7 @@ func ExamplePrinter() {
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
+	//     TXT+: v=spf1 ip4:205.201.128.0/20 ip4:198.2.128.0/18 ip4:148.105.8.0/21 ?all
 	//     SPF: v=spf1 ip4:205.201.128.0/20 ip4:198.2.128.0/18 ip4:148.105.8.0/21 ?all
 	//     v=spf1
 	//     ip4:205.201.128.0/20 (205.201.128.0/20)
@@ -137,6 +140,7 @@ func ExamplePrinter() {
 	// = fail, &{269000000000 false []}, , <nil>
 	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
+	//   TXT+: v=spf1 ptr ~all
 	//   SPF: v=spf1 ptr ~all
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)
@@ -196,11 +200,13 @@ func ExamplePrinter_ipv6nil() {
 	// Unordered output:
 	// CHECK_HOST("0.0.0.0", "q4press.com.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) q4press.com.
+	//   TXT+: v=spf1 include:_spf.q4press.com ~all
 	//   SPF: v=spf1 include:_spf.q4press.com ~all
 	//   v=spf1
 	//   include:_spf.q4press.com (_spf.q4press.com.)
 	//   CHECK_HOST("0.0.0.0", "_spf.q4press.com.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) _spf.q4press.com.
+	//     TXT+: v=spf1 a:web.q4press.com -all
 	//     SPF: v=spf1 a:web.q4press.com -all
 	//     v=spf1
 	//     a:web.q4press.com (web.q4press.com.)
@@ -240,16 +246,19 @@ func ExamplePrinter_voids() {
 	// Output:
 	// CHECK_HOST("0.0.0.0", "err008.spf.qa.redsift.tech.", "redsift.io")
 	//     lookup(TXT:strict) err008.spf.qa.redsift.tech.
+	//   TXT+: v=spf1 include:err008.1.spf.qa.redsift.tech -all
 	//   SPF: v=spf1 include:err008.1.spf.qa.redsift.tech -all
 	//   v=spf1
 	//   include:err008.1.spf.qa.redsift.tech (err008.1.spf.qa.redsift.tech.)
 	//   CHECK_HOST("0.0.0.0", "err008.1.spf.qa.redsift.tech.", "redsift.io")
 	//       lookup(TXT:strict) err008.1.spf.qa.redsift.tech.
+	//     TXT+: v=spf1 include:err008.2.spf.qa.redsift.tech include:err008.3.spf.qa.redsift.tech include:err008.4.spf.qa.redsift.tech -all
 	//     SPF: v=spf1 include:err008.2.spf.qa.redsift.tech include:err008.3.spf.qa.redsift.tech include:err008.4.spf.qa.redsift.tech -all
 	//     v=spf1
 	//     include:err008.2.spf.qa.redsift.tech (err008.2.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.2.spf.qa.redsift.tech.", "redsift.io")
 	//         lookup(TXT:strict) err008.2.spf.qa.redsift.tech.
+	//       TXT+: v=spf1 ip4:80.194.146.205 -all
 	//       SPF: v=spf1 ip4:80.194.146.205 -all
 	//       v=spf1
 	//       ip4:80.194.146.205 (80.194.146.205)
@@ -264,6 +273,7 @@ func ExamplePrinter_voids() {
 	//     include:err008.4.spf.qa.redsift.tech (err008.4.spf.qa.redsift.tech.)
 	//     CHECK_HOST("0.0.0.0", "err008.4.spf.qa.redsift.tech.", "redsift.io")
 	//         lookup(TXT:strict) err008.4.spf.qa.redsift.tech.
+	//       TXT+: v=spf1 include:err008.5.spf.qa.redsift.tech include:err008.6.spf.qa.redsift.tech -all
 	//       SPF: v=spf1 include:err008.5.spf.qa.redsift.tech include:err008.6.spf.qa.redsift.tech -all
 	//       v=spf1
 	//       include:err008.5.spf.qa.redsift.tech (err008.5.spf.qa.redsift.tech.)
@@ -347,6 +357,7 @@ func ExamplePrinter_ignoreMatches() {
 	//  output:
 	//  CHECK_HOST("0.0.0.0", "subito.it.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) subito.it.
+	//   TXT+: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   SPF: v=spf1 mx:blocket.se include:spf.mailjet.com include:servers.mcsv.net ip4:109.168.127.160/27 ip4:212.31.252.64/27 ip4:212.77.68.6 ip4:62.212.1.160 ip4:62.212.0.160 ip4:93.94.32.0/21 ip4:93.94.37.253 ip4:109.168.121.48/28 ip4:37.202.20.23/32 ip4:213.215.152.254/32 ip4:213.215.152.253/32 ip4:213.215.152.252/32 ip4:213.215.152.251/32 ip4:109.168.121.54/32 ip4:109.168.121.55/32 ip4:109.168.121.57/32 ip4:109.168.121.58/32 -all
 	//   v=spf1
 	//   mx:blocket.se (blocket.se.)
@@ -363,6 +374,7 @@ func ExamplePrinter_ignoreMatches() {
 	//   include:spf.mailjet.com (spf.mailjet.com.)
 	//   CHECK_HOST("0.0.0.0", "spf.mailjet.com.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) spf.mailjet.com.
+	//     TXT+: v=spf1 ip4:178.33.111.144 ip4:178.33.137.208/28 ip4:178.33.221.0/24 ip4:37.59.69.128/25 ip4:37.59.249.0/24 ip4:87.253.232.0/21 ip4:185.189.236.0/22 ?all
 	//     SPF: v=spf1 ip4:178.33.111.144 ip4:178.33.137.208/28 ip4:178.33.221.0/24 ip4:37.59.69.128/25 ip4:37.59.249.0/24 ip4:87.253.232.0/21 ip4:185.189.236.0/22 ?all
 	//     v=spf1
 	//     ip4:178.33.111.144 (178.33.111.144)
@@ -378,6 +390,7 @@ func ExamplePrinter_ignoreMatches() {
 	//   include:servers.mcsv.net (servers.mcsv.net.)
 	//   CHECK_HOST("0.0.0.0", "servers.mcsv.net.", "aspmx.l.google.com")
 	//       lookup(TXT:strict) servers.mcsv.net.
+	//     TXT+: v=spf1 ip4:205.201.128.0/20 ip4:198.2.128.0/18 ip4:148.105.8.0/21 ?all
 	//     SPF: v=spf1 ip4:205.201.128.0/20 ip4:198.2.128.0/18 ip4:148.105.8.0/21 ?all
 	//     v=spf1
 	//     ip4:205.201.128.0/20 (205.201.128.0/20)
@@ -406,6 +419,7 @@ func ExamplePrinter_ignoreMatches() {
 	// = 8, &{269000000000 false []}, , result is unreliable with IgnoreMatches option enabled
 	// CHECK_HOST("0.0.0.0", "ptr.test.redsift.io.", "aspmx.l.google.com")
 	//     lookup(TXT:strict) ptr.test.redsift.io.
+	//   TXT+: v=spf1 ptr ~all
 	//   SPF: v=spf1 ptr ~all
 	//   v=spf1
 	//   ptr (ptr.test.redsift.io.)

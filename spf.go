@@ -352,40 +352,6 @@ func CheckHost(ip net.IP, domain, sender string, opts ...Option) (Result, string
 	return newParser(opts...).checkHost(ip, NormalizeFQDN(domain), sender)
 }
 
-// Starting with the set of records that were returned by the lookup,
-// discard records that do not begin with a version section of exactly
-// "v=spf1".  Note that the version section is terminated by either an
-// SP character or the end of the record.  As an example, a record with
-// a version section of "v=spf10" does not match and is discarded.
-func filterSPF(txt []string) []string {
-	const (
-		v    = "v=spf1"
-		vLen = 6
-	)
-	var spf []string
-
-	for _, s := range txt {
-		if len(s) < vLen {
-			continue
-		}
-		if len(s) == vLen {
-			if s == v {
-				spf = append(spf, s)
-			}
-			continue
-		}
-		if s[vLen] != ' ' && s[vLen] != '\t' {
-			continue
-		}
-		if !strings.HasPrefix(s, v) {
-			continue
-		}
-		spf = append(spf, s)
-	}
-
-	return spf
-}
-
 // isDomainName checks if a string is a presentation-format domain name
 // (currently restricted to hostname-compatible "preferred name" LDH labels and
 // SRV-like "underscore labels"; see golang.org/issue/12421).
