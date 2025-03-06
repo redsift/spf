@@ -25,7 +25,7 @@ func IsSPFCandidate(s string) bool {
 	}
 
 	length := len(s) - minRequired
-	for i <= length {
+	for i < len(s) {
 		switch state {
 		case StateInit:
 			// Fast-forward to the next interesting character
