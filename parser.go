@@ -644,9 +644,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/
-
-	if err != nil {
+	*/ if err != nil {
 		err = wrap(t, err)
 	}
 
