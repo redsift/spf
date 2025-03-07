@@ -32,6 +32,7 @@ func TestLexerScanIdent(t *testing.T) {
 		query string
 		want  *token
 	}{
+		{"v=spf2", &token{mechanism: tVersion, qualifier: qPlus, value: "spf2", key: "v"}},
 		{"v=spf1", &token{mechanism: tVersion, qualifier: qPlus, value: "spf1", key: "v"}},
 		{"v=spf1 ", &token{mechanism: tVersion, qualifier: qPlus, value: "spf1", key: "v"}},
 		{"A:127.0.0.1", &token{mechanism: tA, qualifier: qPlus, value: "127.0.0.1", key: "A"}},

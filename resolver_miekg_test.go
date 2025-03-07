@@ -179,7 +179,7 @@ func TestMiekgDNSResolver_CaseProd1(t *testing.T) {
 		t.Fatal("Could not create resolver", err)
 	}
 
-	txts, _, err := resolver.LookupTXTStrict("thomsonreuters.com.")
+	txts, _, err := resolver.LookupTXTStrict("example.com.")
 	if err != nil {
 		t.Fatal("Could not query TXTs", err)
 	}

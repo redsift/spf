@@ -194,6 +194,13 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 
 	p.fireLookupExtras(nil, domain, extras)
 
+	// If the resultant record set includes no records, check_host()
+	// produces the "none" result.  If the resultant record set includes
+	// more than one record, check_host() produces the "permerror" result.
+	candidates, policies := FilterSPFCandidates(txts)
+
+	p.fireTXT(candidates, policies)
+
 	switch err {
 	case nil:
 		// continue
@@ -204,11 +211,6 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 	default:
 		return Temperror, "", "", NewSpfError(spferr.KindDNS, err, nil)
 	}
-
-	// If the resultant record set includes no records, check_host()
-	// produces the "none" result.  If the resultant record set includes
-	// more than one record, check_host() produces the "permerror" result.
-	policies := filterSPF(txts)
 
 	if len(policies) == 0 {
 		return None, "", "", NewSpfError(spferr.KindValidation,
@@ -396,6 +398,14 @@ func (p *parser) fireLookupExtras(t *token, fqdn string, extras *ResponseExtras)
 	}
 
 	p.listener.LookupExtras(t.qualifier.String(), t.mechanism.String(), t.value, fqdn, extras)
+}
+
+func (p *parser) fireTXT(candidates, policies []string) {
+	if p.listener == nil {
+		return
+	}
+
+	p.listener.TXT(candidates, policies)
 }
 
 func (p *parser) fireFirstMatch(r Result, e error) {

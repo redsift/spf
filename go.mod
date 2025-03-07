@@ -1,27 +1,36 @@
 module github.com/redsift/spf/v2
 
 require (
-	github.com/cespare/xxhash/v2 v2.1.1
-	github.com/google/go-cmp v0.5.8
-	github.com/miekg/dns v1.1.50
-	github.com/outcaste-io/ristretto v0.2.1-0.20220920190841-934cd992cf88
-	github.com/tailscale/depaware v0.0.0-20210622194025-720c4b409502
-	honnef.co/go/tools v0.3.3
-	mvdan.cc/gofumpt v0.4.0
+	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/google/go-cmp v0.7.0
+	github.com/miekg/dns v1.1.63
+	github.com/outcaste-io/ristretto v0.2.3
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
-	github.com/BurntSushi/toml v0.4.1 // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
+	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20220218215828-6cf2b201936e // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.32.0 // indirect
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/tools v0.1.12 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/tools v0.31.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	honnef.co/go/tools v0.6.1 // indirect
+	mvdan.cc/gofumpt v0.7.0 // indirect
 )
 
-go 1.22
+go 1.24
+
+toolchain go1.24.0
+
+tool (
+	honnef.co/go/tools/cmd/staticcheck
+	mvdan.cc/gofumpt
+)
