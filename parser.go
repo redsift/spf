@@ -172,8 +172,13 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 		for _, t := range u.mechanisms {
 			p.fireUnusedDirective(t)
 		}
-		p.fireUnusedDirective(u.redirect)
+		// Is inspect mode tokens are handled as is; no sorting applied
+		// and thus u.mechanisms have redirect, if it in the tree and has not been met
+		if !p.ignoreMatches {
+			p.fireUnusedDirective(u.redirect)
+		}
 	}()
+
 	/*
 	* As per RFC 7208 Section 4.3:
 	* If the <domain> is malformed (e.g., label longer than 63
@@ -241,6 +246,136 @@ type unused struct {
 	redirect   *token
 }
 
+func (p *parser) observe(tokens []*token) (Result, string, unused, error) {
+	mechanisms, _, _, unknownModifiers, err := sortTokens(tokens)
+	if err != nil {
+		return Permerror, "", unused{mechanisms, nil}, err
+	}
+
+	var (
+		token  *token
+		i      int
+		result = Neutral
+	)
+
+	for i, token = range tokens {
+		match := false
+
+		switch token.mechanism {
+		case tVersion:
+			match, result, err = p.parseVersion(token)
+		case tAll:
+			match, result, err = p.parseAll(token)
+		case tA:
+			match, result, _, err = p.parseA(token)
+		case tIP4:
+			match, result, err = p.parseIP4(token)
+		case tIP6:
+			match, result, err = p.parseIP6(token)
+		case tMX:
+			match, result, _, err = p.parseMX(token)
+		case tInclude:
+			match, result, err = p.parseInclude(token)
+		case tExists:
+			match, result, _, err = p.parseExists(token)
+		case tPTR:
+			match, result, _, err = p.parsePtr(token)
+		case tRedirect:
+			result, _ = p.handleRedirect(token)
+		case tExp:
+			exp, _ := p.handleExplanation(token)
+			p.fireDirective(token, exp)
+		default:
+			p.fireDirective(token, "")
+		}
+
+		// Store the first match result if not already set
+		if match {
+			p.fireFirstMatch(result, err)
+		}
+
+		p.fireNonMatch(token, result, err)
+
+		// in walker-mode we want to count number of errors and check the counter against some threshold
+		if p.stopAtError != nil && p.stopAtError(err) {
+			return unreliableResult, "", unused{tokens[i+1:], nil}, ErrTooManyErrors
+		}
+
+		// all expected errors should be thrown with match=true
+		// others are being registered by listener
+	}
+
+	for i, token = range unknownModifiers {
+		p.fireDirective(token, "")
+	}
+
+	return unreliableResult, "", unused{}, ErrUnreliableResult
+}
+
+func (p *parser) evaluate(tokens []*token) (Result, string, unused, error) {
+	mechanisms, redirect, explanation, _, err := sortTokens(tokens)
+	if err != nil {
+		return Permerror, "", unused{mechanisms, redirect}, err
+	}
+
+	var (
+		token  *token
+		i      int
+		all    bool
+		result = Neutral
+	)
+
+	for i, token = range mechanisms {
+		var (
+			match  bool
+			extras *ResponseExtras
+		)
+		switch token.mechanism {
+		case tVersion:
+			match, result, err = p.parseVersion(token)
+		case tAll:
+			all = true
+			match, result, err = p.parseAll(token)
+		case tA:
+			match, result, extras, err = p.parseA(token)
+		case tIP4:
+			match, result, err = p.parseIP4(token)
+		case tIP6:
+			match, result, err = p.parseIP6(token)
+		case tMX:
+			match, result, extras, err = p.parseMX(token)
+		case tInclude:
+			match, result, err = p.parseInclude(token)
+		case tExists:
+			match, result, extras, err = p.parseExists(token)
+		case tPTR:
+			match, result, extras, err = p.parsePtr(token)
+		default:
+			p.fireDirective(token, "")
+		}
+
+		if match {
+			var s string
+			if result == Fail && explanation != nil {
+				s, err = p.handleExplanation(explanation)
+			}
+			p.fireMatch(token, result, s, extras, err)
+			return result, s, unused{mechanisms[i+1:], redirect}, err
+		}
+
+		p.fireNonMatch(token, result, err)
+
+		// all expected errors should be thrown with match=true
+		// others are being registered by listener
+	}
+
+	if !all {
+		result, err = p.handleRedirect(redirect)
+	}
+
+	return result, "", unused{}, err
+}
+
 // check aggregates all steps required for SPF evaluation.
 // After lexing and tokenizing step it sorts tokens (and returns Permerror if
 // there is any syntax error) and starts evaluating
@@ -251,84 +386,14 @@ func (p *parser) check() (Result, string, unused, error) {
 	defer p.visited.pop()
 
 	p.fireSPFRecord(p.query)
+
 	tokens := lex(p.query)
 
-	var (
-		result  = Neutral
-		matches bool
-		token   *token
-		i       int
-		extras  *ResponseExtras
-	)
-
-	mechanisms, redirect, explanation, unknownModifiers, err := sortTokens(tokens)
-	if err != nil {
-		return Permerror, "", unused{mechanisms, redirect}, err
-	}
-
-	var all bool
-	for i, token = range mechanisms {
-		switch token.mechanism {
-		case tVersion:
-			matches, result, err = p.parseVersion(token)
-		case tAll:
-			all = true
-			matches, result, err = p.parseAll(token)
-		case tA:
-			matches, result, extras, err = p.parseA(token)
-		case tIP4:
-			matches, result, err = p.parseIP4(token)
-		case tIP6:
-			matches, result, err = p.parseIP6(token)
-		case tMX:
-			matches, result, extras, err = p.parseMX(token)
-		case tInclude:
-			matches, result, err = p.parseInclude(token)
-		case tExists:
-			matches, result, extras, err = p.parseExists(token)
-		case tPTR:
-			matches, result, extras, err = p.parsePtr(token)
-		default:
-			p.fireDirective(token, "")
-		}
-
-		if !p.ignoreMatches && matches {
-			var s string
-			if result == Fail && explanation != nil {
-				s, err = p.handleExplanation(explanation)
-			}
-			p.fireMatch(token, result, s, extras, err)
-			return result, s, unused{mechanisms[i+1:], redirect}, err
-		}
-
-		// Store the first match result if not already set
-		if p.ignoreMatches && matches {
-			p.fireFirstMatch(result, err)
-		}
-
-		p.fireNonMatch(token, result, err)
-
-		// in walker-mode we want to count number of errors and check the counter against some threshold
-		if p.ignoreMatches && p.stopAtError != nil && p.stopAtError(err) {
-			return unreliableResult, "", unused{mechanisms[i+1:], redirect}, ErrTooManyErrors
-		}
-
-		// all expected errors should be thrown with matches=true
-		// others are being registered by listener
-	}
-
-	if !all {
-		result, err = p.handleRedirect(redirect)
-	}
-
 	if p.ignoreMatches {
-		for i, token = range unknownModifiers {
-			p.fireDirective(token, "")
-		}
-		return unreliableResult, "", unused{}, ErrUnreliableResult
+		return p.observe(tokens)
 	}
 
-	return result, "", unused{}, err
+	return p.evaluate(tokens)
 }
 
 func (p *parser) fireCheckHost(ip net.IP, domain, sender string) {
@@ -472,7 +537,7 @@ func (p *parser) parseVersion(t *token) (bool, Result, error) {
 	if t.value == "spf1" {
 		return false, None, nil
 	}
-	return true, Permerror, NewSpfError(spferr.KindSyntax, fmt.Errorf("invalid spf qualifier: %v", t.value), t)
+	return true, Permerror, NewSpfError(spferr.KindSyntax, fmt.Errorf("invalid version: %v", t.value), t)
 }
 
 func (p *parser) parseAll(t *token) (bool, Result, error) {
@@ -644,7 +709,7 @@ func (p *parser) parseInclude(t *token) (bool, Result, error) {
 	  |                                 |                                 |
 	  | none                            | return permerror                |
 	  +---------------------------------+---------------------------------+
-	*/ if err != nil {
+	*/if err != nil {
 		err = wrap(t, err)
 	}
 
@@ -777,6 +842,11 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	redirectDomain := NormalizeFQDN(domain)
 
 	p.fireDirective(t, redirectDomain)
+	if p.ignoreMatches {
+		// In inspect mode we only register modifier presence, w/o actual handling
+		return unreliableResult, ErrUnreliableResult
+	}
+
 	if err != nil {
 		return Permerror, NewSpfError(spferr.KindSyntax, err, t)
 	}
