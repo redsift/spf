@@ -173,7 +173,7 @@ func (p *parser) checkHost(ip net.IP, domain, sender string) (r Result, expl str
 			p.fireUnusedDirective(t)
 		}
 		// Is inspect mode tokens are handled as is; no sorting applied
-		// and thus u.mechanisms have redirect, if it in the tree and has not been met
+		// and thus u.mechanisms have redirect, if it is in the tree and has not been met
 		if !p.ignoreMatches {
 			p.fireUnusedDirective(u.redirect)
 		}
