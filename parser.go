@@ -247,7 +247,7 @@ type unused struct {
 }
 
 func (p *parser) observe(tokens []*token) (Result, string, unused, error) {
-	mechanisms, _, _, unknownModifiers, err := sortTokens(tokens)
+	mechanisms, _, _, _, err := sortTokens(tokens)
 	if err != nil {
 		return Permerror, "", unused{mechanisms, nil}, err
 	}
@@ -303,10 +303,6 @@ func (p *parser) observe(tokens []*token) (Result, string, unused, error) {
 
 		// all expected errors should be thrown with match=true
 		// others are being registered by listener
-	}
-
-	for i, token = range unknownModifiers {
-		p.fireDirective(token, "")
 	}
 
 	return unreliableResult, "", unused{}, ErrUnreliableResult
@@ -842,10 +838,6 @@ func (p *parser) handleRedirect(t *token) (Result, error) {
 	redirectDomain := NormalizeFQDN(domain)
 
 	p.fireDirective(t, redirectDomain)
-	if p.ignoreMatches {
-		// In inspect mode we only register modifier presence, w/o actual handling
-		return unreliableResult, ErrUnreliableResult
-	}
 
 	if err != nil {
 		return Permerror, NewSpfError(spferr.KindSyntax, err, t)
