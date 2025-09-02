@@ -1,3 +1,9 @@
+# STATUS
+This repository is archived and no longer maintained.
+
+- No further updates or bug fixes will be provided
+- Issues and pull requests are disabled
+
 # Sender Policy Framework
 
 A comprehensive RFC7208 implementation
